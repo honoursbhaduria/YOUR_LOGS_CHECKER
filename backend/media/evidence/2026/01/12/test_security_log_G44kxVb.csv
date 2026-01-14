@@ -1,0 +1,7 @@
+timestamp,event_type,source_ip,dest_ip,user,action,status
+2026-01-12 10:00:00,LOGIN,192.168.1.100,10.0.0.1,john.doe,login,success
+2026-01-12 10:05:00,FILE_ACCESS,192.168.1.100,10.0.0.5,john.doe,read,success
+2026-01-12 10:10:00,LOGIN,192.168.1.200,10.0.0.1,admin,login,failed
+2026-01-12 10:15:00,LOGIN,192.168.1.200,10.0.0.1,admin,login,failed
+2026-01-12 10:20:00,LOGIN,192.168.1.200,10.0.0.1,admin,login,failed
+2026-01-12 10:25:00,FILE_DELETE,192.168.1.100,10.0.0.5,john.doe,delete,success

@@ -1,0 +1,232 @@
+timestamp,event_id,source,user,src_ip,dest_ip,dest_port,action,result,process,file_path,command_line,parent_process,hash,severity,description
+2026-01-11 08:00:00,4624,Security,SYSTEM,192.168.10.100,192.168.10.50,3389,logon,success,,,,,low,System startup - normal logon
+2026-01-11 08:00:15,4688,Security,SYSTEM,192.168.10.50,,0,process_create,success,services.exe,C:\Windows\System32\services.exe,,,low,System service started
+2026-01-11 08:00:30,4688,Security,SYSTEM,192.168.10.50,,0,process_create,success,svchost.exe,C:\Windows\System32\svchost.exe,,,low,Service host process started
+2026-01-11 08:01:00,4624,Security,alice.johnson,192.168.10.101,192.168.10.50,3389,logon,success,,,,,low,User alice.johnson logged in successfully
+2026-01-11 08:01:30,4688,Security,alice.johnson,192.168.10.50,,0,process_create,success,explorer.exe,C:\Windows\explorer.exe,,,low,Windows Explorer started
+2026-01-11 08:02:00,4663,Security,alice.johnson,192.168.10.50,,0,file_access,success,,C:\Users\alice.johnson\Documents\report.docx,,,low,File accessed
+2026-01-11 08:05:00,4624,Security,bob.smith,192.168.10.102,192.168.10.50,3389,logon,success,,,,,low,User bob.smith logged in successfully
+2026-01-11 08:05:30,4688,Security,bob.smith,192.168.10.50,,0,process_create,success,outlook.exe,C:\Program Files\Microsoft Office\OUTLOOK.EXE,,,low,Outlook started
+2026-01-11 08:10:00,5156,Security,alice.johnson,192.168.10.50,52.96.132.50,443,network_connection,allowed,chrome.exe,,,,,low,HTTPS connection to Microsoft services
+2026-01-11 08:12:00,4624,Security,admin,192.168.10.103,192.168.10.50,3389,logon,success,,,,,low,Administrator logged in
+2026-01-11 08:15:00,4688,Security,admin,192.168.10.50,,0,process_create,success,powershell.exe,C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe,,,low,PowerShell session started
+2026-01-11 08:20:00,4663,Security,bob.smith,192.168.10.50,,0,file_access,success,,C:\Shares\Finance\Q4_Report.xlsx,,,medium,Shared file accessed
+2026-01-11 08:25:00,5156,Security,bob.smith,192.168.10.50,40.112.72.205,443,network_connection,allowed,teams.exe,,,,,low,Microsoft Teams connection
+2026-01-11 08:30:00,4624,Security,carol.davis,192.168.10.104,192.168.10.50,3389,logon,success,,,,,low,User carol.davis logged in
+2026-01-11 08:35:00,4688,Security,carol.davis,192.168.10.50,,0,process_create,success,excel.exe,C:\Program Files\Microsoft Office\EXCEL.EXE,,,low,Excel started
+2026-01-11 08:40:00,4663,Security,alice.johnson,192.168.10.50,,0,file_access,success,,C:\Users\alice.johnson\Downloads\invoice.pdf,,,low,PDF file accessed
+2026-01-11 08:45:00,5156,Security,alice.johnson,192.168.10.50,151.101.1.140,443,network_connection,allowed,chrome.exe,,,,,low,HTTPS connection to CDN
+2026-01-11 08:50:00,4624,Security,david.wilson,192.168.10.105,192.168.10.50,3389,logon,success,,,,,low,User david.wilson logged in
+2026-01-11 08:55:00,4688,Security,david.wilson,192.168.10.50,,0,process_create,success,code.exe,C:\Program Files\Microsoft VS Code\Code.exe,,,low,VS Code started
+2026-01-11 09:00:00,4663,Security,admin,192.168.10.50,,0,file_access,success,,C:\Windows\System32\config\SAM,,,medium,SAM database accessed
+2026-01-11 09:05:00,4624,Security,emma.brown,192.168.10.106,192.168.10.50,3389,logon,success,,,,,low,User emma.brown logged in
+2026-01-11 09:10:00,5156,Security,bob.smith,192.168.10.50,13.107.42.14,443,network_connection,allowed,onedrive.exe,,,,,low,OneDrive sync connection
+2026-01-11 09:15:00,4688,Security,emma.brown,192.168.10.50,,0,process_create,success,chrome.exe,C:\Program Files\Google\Chrome\Application\chrome.exe,,,low,Chrome browser started
+2026-01-11 09:20:00,4663,Security,carol.davis,192.168.10.50,,0,file_access,success,,C:\Shares\HR\Employee_List.xlsx,,,medium,HR file accessed
+2026-01-11 09:25:00,4624,Security,frank.miller,192.168.10.107,192.168.10.50,3389,logon,success,,,,,low,User frank.miller logged in
+2026-01-11 09:30:00,4688,Security,frank.miller,192.168.10.50,,0,process_create,success,slack.exe,C:\Users\frank.miller\AppData\Local\slack\slack.exe,,,low,Slack started
+2026-01-11 09:35:00,5156,Security,david.wilson,192.168.10.50,140.82.121.4,443,network_connection,allowed,git.exe,,,,,low,GitHub connection
+2026-01-11 09:40:00,4663,Security,alice.johnson,192.168.10.50,,0,file_access,success,,C:\Projects\WebApp\config.json,,,low,Config file accessed
+2026-01-11 09:45:00,4624,Security,grace.lee,192.168.10.108,192.168.10.50,3389,logon,success,,,,,low,User grace.lee logged in
+2026-01-11 09:50:00,4688,Security,grace.lee,192.168.10.50,,0,process_create,success,notepad.exe,C:\Windows\System32\notepad.exe,,,low,Notepad started
+2026-01-11 09:55:00,5156,Security,emma.brown,192.168.10.50,172.217.14.206,443,network_connection,allowed,chrome.exe,,,,,low,Google services connection
+2026-01-11 10:00:00,4624,Security,henry.taylor,192.168.10.109,192.168.10.50,3389,logon,success,,,,,low,User henry.taylor logged in
+2026-01-11 10:05:00,4688,Security,henry.taylor,192.168.10.50,,0,process_create,success,zoom.exe,C:\Users\henry.taylor\AppData\Roaming\Zoom\bin\Zoom.exe,,,low,Zoom started
+2026-01-11 10:10:00,4663,Security,bob.smith,192.168.10.50,,0,file_access,success,,C:\Shares\Marketing\Campaign_2026.pptx,,,low,Marketing file accessed
+2026-01-11 10:15:00,4624,Security,admin,192.168.10.103,192.168.10.51,22,logon,success,,,,,low,SSH login to Linux server
+2026-01-11 10:20:00,5156,Security,frank.miller,192.168.10.50,104.16.132.229,443,network_connection,allowed,chrome.exe,,,,,low,Cloudflare CDN connection
+2026-01-11 10:25:00,4688,Security,carol.davis,192.168.10.50,,0,process_create,success,winword.exe,C:\Program Files\Microsoft Office\WINWORD.EXE,,,low,Word started
+2026-01-11 10:30:00,4663,Security,david.wilson,192.168.10.50,,0,file_access,success,,C:\Projects\API\database.sql,,,medium,Database file accessed
+2026-01-11 10:35:00,4624,Security,isabel.garcia,192.168.10.110,192.168.10.50,3389,logon,success,,,,,low,User isabel.garcia logged in
+2026-01-11 10:40:00,4688,Security,isabel.garcia,192.168.10.50,,0,process_create,success,photoshop.exe,C:\Program Files\Adobe\Photoshop\Photoshop.exe,,,low,Photoshop started
+2026-01-11 10:45:00,5156,Security,alice.johnson,192.168.10.50,20.190.151.70,443,network_connection,allowed,teams.exe,,,,,low,Teams call connection
+2026-01-11 10:50:00,4663,Security,emma.brown,192.168.10.50,,0,file_access,success,,C:\Users\emma.brown\Desktop\presentation.pptx,,,low,Presentation file accessed
+2026-01-11 10:55:00,4624,Security,jack.anderson,192.168.10.111,192.168.10.50,3389,logon,success,,,,,low,User jack.anderson logged in
+2026-01-11 11:00:00,4688,Security,jack.anderson,192.168.10.50,,0,process_create,success,python.exe,C:\Python39\python.exe,"C:\Scripts\data_analysis.py",,low,Python script execution
+2026-01-11 11:05:00,5156,Security,grace.lee,192.168.10.50,52.109.88.77,443,network_connection,allowed,outlook.exe,,,,,low,Exchange Online connection
+2026-01-11 11:10:00,4663,Security,admin,192.168.10.50,,0,file_access,success,,C:\Windows\System32\drivers\etc\hosts,,,medium,Hosts file accessed
+2026-01-11 11:15:00,4624,Security,karen.white,192.168.10.112,192.168.10.50,3389,logon,success,,,,,low,User karen.white logged in
+2026-01-11 11:20:00,4688,Security,karen.white,192.168.10.50,,0,process_create,success,firefox.exe,C:\Program Files\Mozilla Firefox\firefox.exe,,,low,Firefox started
+2026-01-11 11:25:00,5156,Security,bob.smith,192.168.10.50,23.45.67.89,80,network_connection,allowed,chrome.exe,,,,,low,HTTP connection to web server
+2026-01-11 11:30:00,4663,Security,frank.miller,192.168.10.50,,0,file_access,success,,C:\Shares\Legal\Contract_Template.docx,,,low,Legal document accessed
+2026-01-11 11:35:00,4624,Security,laura.martinez,192.168.10.113,192.168.10.50,3389,logon,success,,,,,low,User laura.martinez logged in
+2026-01-11 11:40:00,4688,Security,laura.martinez,192.168.10.50,,0,process_create,success,spotify.exe,C:\Users\laura.martinez\AppData\Roaming\Spotify\Spotify.exe,,,low,Spotify started
+2026-01-11 11:45:00,5156,Security,henry.taylor,192.168.10.50,13.89.178.27,443,network_connection,allowed,zoom.exe,,,,,low,Zoom meeting connection
+2026-01-11 11:50:00,4663,Security,isabel.garcia,192.168.10.50,,0,file_access,success,,C:\Projects\Design\logo.psd,,,low,Design file accessed
+2026-01-11 11:55:00,4624,Security,mike.thompson,192.168.10.114,192.168.10.50,3389,logon,success,,,,,low,User mike.thompson logged in
+2026-01-11 12:00:00,4688,Security,mike.thompson,192.168.10.50,,0,process_create,success,cmd.exe,C:\Windows\System32\cmd.exe,,,low,Command prompt started
+2026-01-11 12:05:00,5156,Security,carol.davis,192.168.10.50,104.215.148.63,443,network_connection,allowed,excel.exe,,,,,low,Excel online connection
+2026-01-11 12:10:00,4663,Security,jack.anderson,192.168.10.50,,0,file_access,success,,C:\Data\customer_data.csv,,,medium,Customer data accessed
+2026-01-11 12:15:00,4624,Security,nancy.rodriguez,192.168.10.115,192.168.10.50,3389,logon,success,,,,,low,User nancy.rodriguez logged in
+2026-01-11 12:20:00,4688,Security,nancy.rodriguez,192.168.10.50,,0,process_create,success,thunderbird.exe,C:\Program Files\Mozilla Thunderbird\thunderbird.exe,,,low,Thunderbird email client started
+2026-01-11 12:25:00,5156,Security,david.wilson,192.168.10.50,185.199.108.133,443,network_connection,allowed,git.exe,,,,,low,GitHub Pages connection
+2026-01-11 12:30:00,4663,Security,alice.johnson,192.168.10.50,,0,file_access,success,,C:\Users\alice.johnson\Documents\budget_2026.xlsx,,,low,Budget file accessed
+2026-01-11 12:35:00,4624,Security,oliver.harris,192.168.10.116,192.168.10.50,3389,logon,success,,,,,low,User oliver.harris logged in
+2026-01-11 12:40:00,4688,Security,oliver.harris,192.168.10.50,,0,process_create,success,discord.exe,C:\Users\oliver.harris\AppData\Local\Discord\app-1.0.9003\Discord.exe,,,low,Discord started
+2026-01-11 12:45:00,5156,Security,emma.brown,192.168.10.50,142.250.185.46,443,network_connection,allowed,chrome.exe,,,,,low,Google Drive connection
+2026-01-11 12:50:00,4663,Security,grace.lee,192.168.10.50,,0,file_access,success,,C:\Shares\IT\Network_Diagram.vsdx,,,low,Network diagram accessed
+2026-01-11 12:55:00,4624,Security,paul.clark,192.168.10.117,192.168.10.50,3389,logon,success,,,,,low,User paul.clark logged in
+2026-01-11 13:00:00,4688,Security,paul.clark,192.168.10.50,,0,process_create,success,steam.exe,C:\Program Files (x86)\Steam\steam.exe,,,low,Steam started
+2026-01-11 13:05:00,5156,Security,karen.white,192.168.10.50,104.18.24.243,443,network_connection,allowed,firefox.exe,,,,,low,CDN connection
+2026-01-11 13:10:00,4663,Security,bob.smith,192.168.10.50,,0,file_access,success,,C:\Shares\Sales\Q1_Forecast.xlsx,,,medium,Sales forecast accessed
+2026-01-11 13:15:00,4624,Security,quinn.lewis,192.168.10.118,192.168.10.50,3389,logon,success,,,,,low,User quinn.lewis logged in
+2026-01-11 13:20:00,4688,Security,quinn.lewis,192.168.10.50,,0,process_create,success,gimp.exe,C:\Program Files\GIMP 2\bin\gimp-2.10.exe,,,low,GIMP started
+2026-01-11 13:25:00,5156,Security,frank.miller,192.168.10.50,54.230.159.88,443,network_connection,allowed,chrome.exe,,,,,low,AWS CloudFront connection
+2026-01-11 13:30:00,4663,Security,laura.martinez,192.168.10.50,,0,file_access,success,,C:\Music\playlist.m3u,,,low,Music playlist accessed
+2026-01-11 13:35:00,4624,Security,rachel.walker,192.168.10.119,192.168.10.50,3389,logon,success,,,,,low,User rachel.walker logged in
+2026-01-11 13:40:00,4688,Security,rachel.walker,192.168.10.50,,0,process_create,success,vlc.exe,C:\Program Files\VideoLAN\VLC\vlc.exe,,,low,VLC media player started
+2026-01-11 13:45:00,5156,Security,henry.taylor,192.168.10.50,52.114.76.76,443,network_connection,allowed,teams.exe,,,,,low,Teams file transfer
+2026-01-11 13:50:00,4663,Security,mike.thompson,192.168.10.50,,0,file_access,success,,C:\Scripts\backup.bat,,,low,Backup script accessed
+2026-01-11 13:55:00,4624,Security,steve.hall,192.168.10.120,192.168.10.50,3389,logon,success,,,,,low,User steve.hall logged in
+2026-01-11 14:00:00,4688,Security,steve.hall,192.168.10.50,,0,process_create,success,winrar.exe,C:\Program Files\WinRAR\WinRAR.exe,,,low,WinRAR started
+2026-01-11 14:05:00,5156,Security,isabel.garcia,192.168.10.50,151.101.193.69,443,network_connection,allowed,chrome.exe,,,,,low,Fastly CDN connection
+2026-01-11 14:10:00,4663,Security,carol.davis,192.168.10.50,,0,file_access,success,,C:\Shares\Finance\Payroll_Jan2026.xlsx,,,high,Payroll file accessed
+2026-01-11 14:15:00,4624,Security,tina.young,192.168.10.121,192.168.10.50,3389,logon,success,,,,,low,User tina.young logged in
+2026-01-11 14:20:00,4688,Security,tina.young,192.168.10.50,,0,process_create,success,7zFM.exe,C:\Program Files\7-Zip\7zFM.exe,,,low,7-Zip file manager started
+2026-01-11 14:25:00,5156,Security,jack.anderson,192.168.10.50,34.117.186.192,443,network_connection,allowed,python.exe,,,,,low,Google Cloud API connection
+2026-01-11 14:30:00,4663,Security,david.wilson,192.168.10.50,,0,file_access,success,,C:\Projects\API\api_keys.env,,,high,API keys file accessed
+2026-01-11 14:35:00,4624,Security,uma.patel,192.168.10.122,192.168.10.50,3389,logon,success,,,,,low,User uma.patel logged in
+2026-01-11 14:40:00,4688,Security,uma.patel,192.168.10.50,,0,process_create,success,postman.exe,C:\Users\uma.patel\AppData\Local\Postman\Postman.exe,,,low,Postman API client started
+2026-01-11 14:45:00,5156,Security,nancy.rodriguez,192.168.10.50,40.97.156.202,443,network_connection,allowed,thunderbird.exe,,,,,low,Email server connection
+2026-01-11 14:50:00,4663,Security,emma.brown,192.168.10.50,,0,file_access,success,,C:\Users\emma.brown\Downloads\whitepaper.pdf,,,low,PDF document accessed
+2026-01-11 14:55:00,4624,Security,victor.king,192.168.10.123,192.168.10.50,3389,logon,success,,,,,low,User victor.king logged in
+2026-01-11 15:00:00,4688,Security,victor.king,192.168.10.50,,0,process_create,success,docker.exe,C:\Program Files\Docker\Docker\Docker Desktop.exe,,,low,Docker Desktop started
+2026-01-11 15:05:00,5156,Security,oliver.harris,192.168.10.50,162.159.130.233,443,network_connection,allowed,discord.exe,,,,,low,Discord voice connection
+2026-01-11 15:10:00,4663,Security,admin,192.168.10.50,,0,file_access,success,,C:\Windows\System32\config\SYSTEM,,,high,SYSTEM registry hive accessed
+2026-01-11 15:15:00,4625,Security,administrator,45.142.212.61,192.168.10.50,3389,logon,failure,,,,,high,Failed login attempt from external IP
+2026-01-11 15:15:05,4625,Security,admin,45.142.212.61,192.168.10.50,3389,logon,failure,,,,,high,Failed login attempt - wrong password
+2026-01-11 15:15:10,4625,Security,root,45.142.212.61,192.168.10.50,3389,logon,failure,,,,,high,Failed login attempt - invalid user
+2026-01-11 15:15:15,4625,Security,administrator,45.142.212.61,192.168.10.50,3389,logon,failure,,,,,high,Failed login attempt from external IP
+2026-01-11 15:15:20,4625,Security,admin,45.142.212.61,192.168.10.50,3389,logon,failure,,,,,high,Failed login attempt - brute force detected
+2026-01-11 15:15:25,4625,Security,sa,45.142.212.61,192.168.10.50,3389,logon,failure,,,,,high,Failed login attempt - SQL admin account
+2026-01-11 15:15:30,4625,Security,administrator,45.142.212.61,192.168.10.50,3389,logon,failure,,,,,critical,Brute force attack - 7th attempt
+2026-01-11 15:15:35,4625,Security,admin,45.142.212.61,192.168.10.50,3389,logon,failure,,,,,critical,Brute force attack - 8th attempt
+2026-01-11 15:15:40,4625,Security,backup,45.142.212.61,192.168.10.50,3389,logon,failure,,,,,critical,Brute force attack - 9th attempt
+2026-01-11 15:15:45,4625,Security,test,45.142.212.61,192.168.10.50,3389,logon,failure,,,,,critical,Brute force attack - 10th attempt
+2026-01-11 15:15:50,4625,Security,user,45.142.212.61,192.168.10.50,3389,logon,failure,,,,,critical,Brute force attack - 11th attempt
+2026-01-11 15:15:55,4625,Security,guest,45.142.212.61,192.168.10.50,3389,logon,failure,,,,,critical,Brute force attack - 12th attempt
+2026-01-11 15:16:00,4625,Security,administrator,45.142.212.61,192.168.10.50,3389,logon,failure,,,,,critical,Brute force attack - 13th attempt
+2026-01-11 15:16:05,4625,Security,admin,45.142.212.61,192.168.10.50,3389,logon,failure,,,,,critical,Brute force attack - 14th attempt
+2026-01-11 15:16:10,4625,Security,support,45.142.212.61,192.168.10.50,3389,logon,failure,,,,,critical,Brute force attack - 15th attempt
+2026-01-11 15:16:15,4625,Security,sysadmin,45.142.212.61,192.168.10.50,3389,logon,failure,,,,,critical,Brute force attack - 16th attempt
+2026-01-11 15:16:20,4625,Security,administrator,45.142.212.61,192.168.10.50,3389,logon,failure,,,,,critical,Brute force attack - 17th attempt
+2026-01-11 15:16:25,4625,Security,admin,45.142.212.61,192.168.10.50,3389,logon,failure,,,,,critical,Brute force attack - 18th attempt
+2026-01-11 15:16:30,4625,Security,webadmin,45.142.212.61,192.168.10.50,3389,logon,failure,,,,,critical,Brute force attack - 19th attempt
+2026-01-11 15:16:35,4625,Security,ftpuser,45.142.212.61,192.168.10.50,3389,logon,failure,,,,,critical,Brute force attack - 20th attempt
+2026-01-11 15:16:40,5157,Security,SYSTEM,45.142.212.61,192.168.10.50,3389,network_connection,blocked,,,,,critical,Firewall blocked connection from brute force IP
+2026-01-11 15:16:45,1102,Security,SYSTEM,192.168.10.50,,0,audit_log,cleared,,,,,critical,Security log cleared - possible cover-up attempt
+2026-01-11 15:17:00,4624,Security,admin,192.168.10.103,192.168.10.50,3389,logon,success,,,,,medium,Admin logged in after attack
+2026-01-11 15:17:30,4688,Security,admin,192.168.10.50,,0,process_create,success,powershell.exe,C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe,"Get-EventLog -LogName Security -Newest 100",,medium,Admin checking security logs
+2026-01-11 15:18:00,5156,Security,admin,192.168.10.50,8.8.8.8,53,network_connection,allowed,powershell.exe,,,,,medium,DNS query from PowerShell
+2026-01-11 15:18:30,4663,Security,admin,192.168.10.50,,0,file_access,success,,C:\Windows\System32\LogFiles\Firewall\pfirewall.log,,,medium,Firewall log accessed
+2026-01-11 15:19:00,4688,Security,admin,192.168.10.50,,0,process_create,success,netstat.exe,C:\Windows\System32\netstat.exe,"-ano",,medium,Network connections enumerated
+2026-01-11 15:19:30,5156,Security,admin,192.168.10.50,192.168.10.1,161,network_connection,allowed,powershell.exe,,,,,medium,SNMP query to router
+2026-01-11 15:20:00,4719,Security,admin,192.168.10.50,,0,policy_change,success,,,,,high,Audit policy changed - enhanced monitoring enabled
+2026-01-11 15:20:30,4946,Security,SYSTEM,45.142.212.61,192.168.10.50,0,firewall_rule,added,,,,,high,Firewall rule added to block attacker IP
+2026-01-11 15:21:00,4688,Security,admin,192.168.10.50,,0,process_create,success,wireshark.exe,C:\Program Files\Wireshark\Wireshark.exe,,,medium,Wireshark started for packet capture
+2026-01-11 15:25:00,4624,Security,alice.johnson,192.168.10.101,192.168.10.50,3389,logon,success,,,,,low,Normal user activity resumed
+2026-01-11 15:30:00,4688,Security,alice.johnson,192.168.10.50,,0,process_create,success,outlook.exe,C:\Program Files\Microsoft Office\OUTLOOK.EXE,,,low,Outlook started
+2026-01-11 15:35:00,5156,Security,bob.smith,192.168.10.50,52.96.132.50,443,network_connection,allowed,teams.exe,,,,,low,Teams connection
+2026-01-11 15:40:00,4663,Security,carol.davis,192.168.10.50,,0,file_access,success,,C:\Shares\Projects\ProjectPlan.mpp,,,low,Project file accessed
+2026-01-11 15:45:00,4624,Security,david.wilson,192.168.10.105,192.168.10.50,3389,logon,success,,,,,low,User logged in
+2026-01-11 15:50:00,4688,Security,david.wilson,192.168.10.50,,0,process_create,success,git.exe,C:\Program Files\Git\cmd\git.exe,"clone https://github.com/company/repo.git",,low,Git clone operation
+2026-01-11 15:55:00,5156,Security,emma.brown,192.168.10.50,104.16.132.229,443,network_connection,allowed,chrome.exe,,,,,low,Web browsing
+2026-01-11 16:00:00,4663,Security,frank.miller,192.168.10.50,,0,file_access,success,,C:\Users\frank.miller\Documents\meeting_notes.txt,,,low,Text file accessed
+2026-01-11 16:05:00,4624,Security,grace.lee,192.168.10.108,192.168.10.50,3389,logon,success,,,,,low,User logged in
+2026-01-11 16:10:00,4688,Security,grace.lee,192.168.10.50,,0,process_create,success,excel.exe,C:\Program Files\Microsoft Office\EXCEL.EXE,,,low,Excel started
+2026-01-11 16:15:00,5156,Security,henry.taylor,192.168.10.50,13.89.178.27,443,network_connection,allowed,zoom.exe,,,,,low,Zoom meeting
+2026-01-11 16:20:00,4663,Security,isabel.garcia,192.168.10.50,,0,file_access,success,,C:\Projects\Website\index.html,,,low,Web file accessed
+2026-01-11 16:25:00,4624,Security,jack.anderson,192.168.10.111,192.168.10.50,3389,logon,success,,,,,low,User logged in
+2026-01-11 16:30:00,4688,Security,jack.anderson,192.168.10.50,,0,process_create,success,jupyter.exe,C:\Python39\Scripts\jupyter-notebook.exe,,,low,Jupyter notebook started
+2026-01-11 16:35:00,5156,Security,karen.white,192.168.10.50,151.101.1.140,443,network_connection,allowed,firefox.exe,,,,,low,Firefox browsing
+2026-01-11 16:40:00,4663,Security,laura.martinez,192.168.10.50,,0,file_access,success,,C:\Music\favorites\song.mp3,,,low,Music file accessed
+2026-01-11 16:45:00,4624,Security,mike.thompson,192.168.10.114,192.168.10.50,3389,logon,success,,,,,low,User logged in
+2026-01-11 16:50:00,4688,Security,mike.thompson,192.168.10.50,,0,process_create,success,taskmgr.exe,C:\Windows\System32\taskmgr.exe,,,low,Task Manager started
+2026-01-11 16:55:00,5156,Security,nancy.rodriguez,192.168.10.50,40.97.156.202,443,network_connection,allowed,outlook.exe,,,,,low,Email sync
+2026-01-11 17:00:00,4663,Security,oliver.harris,192.168.10.50,,0,file_access,success,,C:\Games\SaveData\profile.dat,,,low,Game save file accessed
+2026-01-11 17:05:00,4624,Security,paul.clark,192.168.10.117,192.168.10.50,3389,logon,success,,,,,low,User logged in
+2026-01-11 17:10:00,4688,Security,paul.clark,192.168.10.50,,0,process_create,success,chrome.exe,C:\Program Files\Google\Chrome\Application\chrome.exe,,,low,Chrome started
+2026-01-11 17:15:00,5156,Security,quinn.lewis,192.168.10.50,172.217.14.206,443,network_connection,allowed,chrome.exe,,,,,low,Google services
+2026-01-11 17:20:00,4663,Security,rachel.walker,192.168.10.50,,0,file_access,success,,C:\Videos\training\tutorial.mp4,,,low,Video file accessed
+2026-01-11 17:25:00,4624,Security,steve.hall,192.168.10.120,192.168.10.50,3389,logon,success,,,,,low,User logged in
+2026-01-11 17:30:00,4688,Security,steve.hall,192.168.10.50,,0,process_create,success,putty.exe,C:\Program Files\PuTTY\putty.exe,,,low,SSH client started
+2026-01-11 17:35:00,5156,Security,tina.young,192.168.10.50,13.107.42.14,443,network_connection,allowed,onedrive.exe,,,,,low,OneDrive sync
+2026-01-11 17:40:00,4663,Security,uma.patel,192.168.10.50,,0,file_access,success,,C:\Development\API\swagger.json,,,low,API documentation accessed
+2026-01-11 17:45:00,4624,Security,victor.king,192.168.10.123,192.168.10.50,3389,logon,success,,,,,low,User logged in
+2026-01-11 17:50:00,4688,Security,victor.king,192.168.10.50,,0,process_create,success,kubectl.exe,C:\Program Files\kubectl\kubectl.exe,"get pods",,low,Kubernetes command
+2026-01-11 17:55:00,5156,Security,alice.johnson,192.168.10.50,20.190.151.70,443,network_connection,allowed,teams.exe,,,,,low,Teams call
+2026-01-11 18:00:00,4634,Security,bob.smith,192.168.10.102,192.168.10.50,3389,logoff,success,,,,,low,User logged off
+2026-01-11 18:05:00,4634,Security,carol.davis,192.168.10.104,192.168.10.50,3389,logoff,success,,,,,low,User logged off
+2026-01-11 18:10:00,4634,Security,david.wilson,192.168.10.105,192.168.10.50,3389,logoff,success,,,,,low,User logged off
+2026-01-11 18:15:00,4634,Security,emma.brown,192.168.10.106,192.168.10.50,3389,logoff,success,,,,,low,User logged off
+2026-01-11 18:20:00,4634,Security,frank.miller,192.168.10.107,192.168.10.50,3389,logoff,success,,,,,low,User logged off
+2026-01-11 18:25:00,4634,Security,grace.lee,192.168.10.108,192.168.10.50,3389,logoff,success,,,,,low,User logged off
+2026-01-11 18:30:00,4634,Security,henry.taylor,192.168.10.109,192.168.10.50,3389,logoff,success,,,,,low,User logged off
+2026-01-11 18:35:00,4634,Security,isabel.garcia,192.168.10.110,192.168.10.50,3389,logoff,success,,,,,low,User logged off
+2026-01-11 18:40:00,4634,Security,jack.anderson,192.168.10.111,192.168.10.50,3389,logoff,success,,,,,low,User logged off
+2026-01-11 18:45:00,4634,Security,karen.white,192.168.10.112,192.168.10.50,3389,logoff,success,,,,,low,User logged off
+2026-01-11 18:50:00,4634,Security,laura.martinez,192.168.10.113,192.168.10.50,3389,logoff,success,,,,,low,User logged off
+2026-01-11 18:55:00,4634,Security,mike.thompson,192.168.10.114,192.168.10.50,3389,logoff,success,,,,,low,User logged off
+2026-01-11 19:00:00,4634,Security,nancy.rodriguez,192.168.10.115,192.168.10.50,3389,logoff,success,,,,,low,User logged off
+2026-01-11 19:05:00,4634,Security,oliver.harris,192.168.10.116,192.168.10.50,3389,logoff,success,,,,,low,User logged off
+2026-01-11 19:10:00,4634,Security,paul.clark,192.168.10.117,192.168.10.50,3389,logoff,success,,,,,low,User logged off
+2026-01-11 19:15:00,4634,Security,quinn.lewis,192.168.10.118,192.168.10.50,3389,logoff,success,,,,,low,User logged off
+2026-01-11 19:20:00,4634,Security,rachel.walker,192.168.10.119,192.168.10.50,3389,logoff,success,,,,,low,User logged off
+2026-01-11 19:25:00,4634,Security,steve.hall,192.168.10.120,192.168.10.50,3389,logoff,success,,,,,low,User logged off
+2026-01-11 19:30:00,4634,Security,tina.young,192.168.10.121,192.168.10.50,3389,logoff,success,,,,,low,User logged off
+2026-01-11 19:35:00,4634,Security,uma.patel,192.168.10.122,192.168.10.50,3389,logoff,success,,,,,low,User logged off
+2026-01-11 19:40:00,4634,Security,victor.king,192.168.10.123,192.168.10.50,3389,logoff,success,,,,,low,User logged off
+2026-01-11 19:45:00,4634,Security,alice.johnson,192.168.10.101,192.168.10.50,3389,logoff,success,,,,,low,User logged off
+2026-01-11 19:50:00,4688,Security,SYSTEM,192.168.10.50,,0,process_create,success,backup.exe,C:\Scripts\backup.exe,,,low,Automated backup started
+2026-01-11 19:55:00,5156,Security,SYSTEM,192.168.10.50,192.168.10.200,445,network_connection,allowed,backup.exe,,,,,low,Backup to network storage
+2026-01-11 20:00:00,4663,Security,SYSTEM,192.168.10.50,,0,file_access,success,,C:\Data\database.bak,,,low,Database backup file created
+2026-01-11 20:05:00,4688,Security,SYSTEM,192.168.10.50,,0,process_create,success,defrag.exe,C:\Windows\System32\defrag.exe,"C: /O",,low,Disk defragmentation started
+2026-01-11 20:10:00,4663,Security,SYSTEM,192.168.10.50,,0,file_access,success,,C:\Windows\System32\config\SOFTWARE,,,low,SOFTWARE registry hive accessed
+2026-01-11 20:15:00,4688,Security,SYSTEM,192.168.10.50,,0,process_create,success,cleanmgr.exe,C:\Windows\System32\cleanmgr.exe,,,low,Disk cleanup started
+2026-01-11 20:20:00,5156,Security,SYSTEM,192.168.10.50,13.107.4.50,443,network_connection,allowed,wuauclt.exe,,,,,low,Windows Update check
+2026-01-11 20:25:00,4663,Security,SYSTEM,192.168.10.50,,0,file_access,success,,C:\Windows\SoftwareDistribution\Download\,,,low,Update files accessed
+2026-01-11 20:30:00,4688,Security,SYSTEM,192.168.10.50,,0,process_create,success,TrustedInstaller.exe,C:\Windows\servicing\TrustedInstaller.exe,,,low,Windows Modules Installer
+2026-01-11 20:35:00,4697,Security,SYSTEM,192.168.10.50,,0,service_install,success,,,,,low,Windows Update service started
+2026-01-11 20:40:00,5156,Security,SYSTEM,192.168.10.50,52.167.144.215,443,network_connection,allowed,svchost.exe,,,,,low,Microsoft Update server connection
+2026-01-11 20:45:00,4663,Security,SYSTEM,192.168.10.50,,0,file_access,success,,C:\Windows\Logs\CBS\CBS.log,,,low,Component-Based Servicing log accessed
+2026-01-11 20:50:00,4688,Security,SYSTEM,192.168.10.50,,0,process_create,success,msiexec.exe,C:\Windows\System32\msiexec.exe,"/i update.msi /quiet",,low,MSI installer started
+2026-01-11 20:55:00,4663,Security,SYSTEM,192.168.10.50,,0,file_access,success,,C:\Program Files\Common Files\,,,low,Common files directory accessed
+2026-01-11 21:00:00,4719,Security,SYSTEM,192.168.10.50,,0,policy_change,success,,,,,low,System audit policy updated
+2026-01-11 21:05:00,4688,Security,SYSTEM,192.168.10.50,,0,process_create,success,sfc.exe,C:\Windows\System32\sfc.exe,"/scannow",,low,System File Checker started
+2026-01-11 21:10:00,4663,Security,SYSTEM,192.168.10.50,,0,file_access,success,,C:\Windows\System32\dllcache\,,,low,DLL cache accessed
+2026-01-11 21:15:00,5156,Security,SYSTEM,192.168.10.50,8.8.8.8,53,network_connection,allowed,svchost.exe,,,,,low,DNS resolution
+2026-01-11 21:20:00,4688,Security,SYSTEM,192.168.10.50,,0,process_create,success,chkdsk.exe,C:\Windows\System32\chkdsk.exe,"C: /F",,low,Disk check scheduled
+2026-01-11 21:25:00,4663,Security,SYSTEM,192.168.10.50,,0,file_access,success,,C:\$Recycle.Bin\,,,low,Recycle bin accessed
+2026-01-11 21:30:00,4688,Security,SYSTEM,192.168.10.50,,0,process_create,success,vssvc.exe,C:\Windows\System32\vssvc.exe,,,low,Volume Shadow Copy service
+2026-01-11 21:35:00,4663,Security,SYSTEM,192.168.10.50,,0,file_access,success,,C:\System Volume Information\,,,low,System volume information accessed
+2026-01-11 21:40:00,5156,Security,SYSTEM,192.168.10.50,192.168.10.1,123,network_connection,allowed,w32time.exe,,,,,low,NTP time synchronization
+2026-01-11 21:45:00,4688,Security,SYSTEM,192.168.10.50,,0,process_create,success,taskeng.exe,C:\Windows\System32\taskeng.exe,,,low,Task Scheduler Engine
+2026-01-11 21:50:00,4698,Security,SYSTEM,192.168.10.50,,0,scheduled_task,created,,,,,low,Scheduled task created
+2026-01-11 21:55:00,4663,Security,SYSTEM,192.168.10.50,,0,file_access,success,,C:\Windows\Tasks\,,,low,Tasks directory accessed
+2026-01-11 22:00:00,4688,Security,SYSTEM,192.168.10.50,,0,process_create,success,MpCmdRun.exe,C:\Program Files\Windows Defender\MpCmdRun.exe,"-Scan -ScanType 2",,low,Windows Defender scan started
+2026-01-11 22:05:00,5156,Security,SYSTEM,192.168.10.50,65.55.44.108,443,network_connection,allowed,MsMpEng.exe,,,,,low,Defender definition update
+2026-01-11 22:10:00,4663,Security,SYSTEM,192.168.10.50,,0,file_access,success,,C:\ProgramData\Microsoft\Windows Defender\,,,low,Defender data accessed
+2026-01-11 22:15:00,4688,Security,SYSTEM,192.168.10.50,,0,process_create,success,smartscreen.exe,C:\Windows\System32\smartscreen.exe,,,low,SmartScreen filter check
+2026-01-11 22:20:00,5156,Security,SYSTEM,192.168.10.50,13.107.4.50,443,network_connection,allowed,smartscreen.exe,,,,,low,SmartScreen cloud check
+2026-01-11 22:25:00,4663,Security,SYSTEM,192.168.10.50,,0,file_access,success,,C:\Windows\Prefetch\,,,low,Prefetch files accessed
+2026-01-11 22:30:00,4688,Security,SYSTEM,192.168.10.50,,0,process_create,success,superfetch.exe,C:\Windows\System32\superfetch.exe,,,low,SuperFetch service
+2026-01-11 22:35:00,4663,Security,SYSTEM,192.168.10.50,,0,file_access,success,,C:\Windows\System32\LogFiles\,,,low,System log files accessed
+2026-01-11 22:40:00,5156,Security,SYSTEM,192.168.10.50,192.168.10.10,514,network_connection,allowed,syslog.exe,,,,,low,Syslog forwarding
+2026-01-11 22:45:00,4688,Security,SYSTEM,192.168.10.50,,0,process_create,success,eventlog.exe,C:\Windows\System32\eventlog.exe,,,low,Event log service
+2026-01-11 22:50:00,4663,Security,SYSTEM,192.168.10.50,,0,file_access,success,,C:\Windows\System32\winevt\Logs\Security.evtx,,,low,Security event log accessed
+2026-01-11 22:55:00,4719,Security,SYSTEM,192.168.10.50,,0,policy_change,success,,,,,low,Audit policy maintenance
+2026-01-11 23:00:00,4688,Security,SYSTEM,192.168.10.50,,0,process_create,success,shutdown.exe,C:\Windows\System32\shutdown.exe,"/r /t 3600",,low,System restart scheduled
+2026-01-11 23:05:00,4634,Security,admin,192.168.10.103,192.168.10.50,3389,logoff,success,,,,,low,Admin logged off
+2026-01-11 23:10:00,5156,Security,SYSTEM,192.168.10.50,192.168.10.200,445,network_connection,allowed,backup.exe,,,,,low,Final backup sync
+2026-01-11 23:15:00,4663,Security,SYSTEM,192.168.10.50,,0,file_access,success,,C:\Logs\backup.log,,,low,Backup log file accessed
+2026-01-11 23:20:00,4688,Security,SYSTEM,192.168.10.50,,0,process_create,success,compress.exe,C:\Scripts\compress.exe,"C:\Logs\*.log",,low,Log compression started
+2026-01-11 23:25:00,4663,Security,SYSTEM,192.168.10.50,,0,file_access,success,,C:\Archive\logs_2026-01-11.zip,,,low,Archived log file created
+2026-01-11 23:30:00,5156,Security,SYSTEM,192.168.10.50,192.168.10.201,22,network_connection,allowed,scp.exe,,,,,low,Secure copy to archive server
+2026-01-11 23:35:00,4663,Security,SYSTEM,192.168.10.50,,0,file_access,success,,C:\Windows\System32\config\SECURITY,,,low,SECURITY registry hive accessed
+2026-01-11 23:40:00,4688,Security,SYSTEM,192.168.10.50,,0,process_create,success,gpupdate.exe,C:\Windows\System32\gpupdate.exe,"/force",,low,Group Policy update
+2026-01-11 23:45:00,4719,Security,SYSTEM,192.168.10.50,,0,policy_change,success,,,,,low,Group Policy applied
+2026-01-11 23:50:00,5156,Security,SYSTEM,192.168.10.50,192.168.10.1,389,network_connection,allowed,lsass.exe,,,,,low,LDAP query to domain controller
+2026-01-11 23:55:00,4663,Security,SYSTEM,192.168.10.50,,0,file_access,success,,C:\Windows\SYSVOL\,,,low,SYSVOL accessed
+2026-01-11 23:59:00,4688,Security,SYSTEM,192.168.10.50,,0,process_create,success,logrotate.exe,C:\Scripts\logrotate.exe,,,low,Log rotation script
+2026-01-11 23:59:30,4663,Security,SYSTEM,192.168.10.50,,0,file_access,success,,C:\Windows\System32\winevt\Logs\Application.evtx,,,low,Application event log accessed
+2026-01-11 23:59:59,4902,Security,SYSTEM,192.168.10.50,,0,audit_log,archived,,,,,low,Security audit log archived for the day

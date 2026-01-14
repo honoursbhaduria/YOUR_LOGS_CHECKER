@@ -1,0 +1,3 @@
+timestamp,event_id,source,user,src_ip,dest_ip,dest_port,action,result,process,file_path,command_line,parent_process,hash,severity,description
+2026-01-13 10:00:00,4624,Security,testuser,192.168.1.100,192.168.1.50,3389,logon,success,,,,,low,Test login event
+2026-01-13 10:01:00,4688,Security,testuser,192.168.1.50,,0,process_create,success,notepad.exe,C:\Windows\notepad.exe,,,low,Notepad started
