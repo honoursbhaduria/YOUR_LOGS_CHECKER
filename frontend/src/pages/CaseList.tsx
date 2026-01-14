@@ -35,18 +35,28 @@ const CaseList: React.FC = () => {
   };
 
   if (isLoading) {
-    return <div className="text-center py-12 text-gray-400">Loading cases...</div>;
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-zinc-700 border-t-zinc-100 mx-auto"></div>
+          <p className="text-zinc-500 text-sm mt-4">Loading investigations...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="px-4 sm:px-0 animate-fadeIn">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-white font-mono">$ list_cases --all</h1>
+    <div className="px-4 sm:px-0">
+      <div className="flex justify-between items-center mb-8">
+        <div>
+          <h1 className="text-2xl font-semibold text-zinc-100">Investigations</h1>
+          <p className="text-sm text-zinc-500 mt-1">Manage and track forensic cases</p>
+        </div>
         <button
           onClick={() => setShowCreateModal(true)}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          className="btn-primary"
         >
-          + New Case
+          New Case
         </button>
       </div>
 
@@ -56,32 +66,33 @@ const CaseList: React.FC = () => {
           <Link
             key={c.id}
             to={`/cases/${c.id}`}
-            className="block bg-gray-900 border border-gray-800 rounded-lg p-6 hover:border-blue-600 hover:bg-gray-800 transition"
+            className="block bg-zinc-900 border border-zinc-800 rounded-lg p-6 hover:border-zinc-700 transition-colors"
           >
             <div className="flex justify-between items-start mb-3">
-              <h3 className="text-lg font-semibold text-white">{c.name}</h3>
+              <h3 className="text-base font-medium text-zinc-100">{c.name}</h3>
               <span
-                className={`px-2 py-1 text-xs font-semibold rounded ${
+                className={`px-2 py-1 text-xs font-medium rounded-lg ${
                   c.status === 'OPEN'
-                    ? 'bg-green-900 text-green-400 border border-green-700'
+                    ? 'bg-emerald-950 text-emerald-400 border border-emerald-900'
                     : c.status === 'IN_PROGRESS'
-                    ? 'bg-blue-900 text-blue-400 border border-blue-700'
+                    ? 'bg-indigo-950 text-indigo-400 border border-indigo-900'
                     : c.status === 'CLOSED'
-                    ? 'bg-gray-800 text-gray-400 border border-gray-700'
-                    : 'bg-yellow-900 text-yellow-400 border border-yellow-700'
+                    ? 'bg-zinc-800 text-zinc-400 border border-zinc-700'
+                    : 'bg-amber-950 text-amber-400 border border-amber-900'
                 }`}
               >
-                {c.status}
+                {c.status.replace('_', ' ')}
               </span>
             </div>
-            <p className="text-sm text-gray-400 mb-4 line-clamp-2">
+            <p className="text-sm text-zinc-400 mb-4 line-clamp-2">
               {c.description || 'No description'}
             </p>
-            <div className="flex justify-between text-sm text-gray-400 font-mono">
-              <span>[F] {c.evidence_count} files</span>
-              <span>[E] {c.event_count} events</span>
+            <div className="flex items-center gap-4 text-sm text-zinc-500">
+              <span>{c.evidence_count} {c.evidence_count === 1 ? 'file' : 'files'}</span>
+              <span>•</span>
+              <span>{c.event_count} {c.event_count === 1 ? 'event' : 'events'}</span>
             </div>
-            <div className="mt-4 text-xs text-gray-500 font-mono">
+            <div className="mt-4 text-xs text-zinc-600">
               Created {new Date(c.created_at).toLocaleDateString()}
             </div>
           </Link>
@@ -90,47 +101,49 @@ const CaseList: React.FC = () => {
 
       {/* Create Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-          <div className="bg-gray-900 border border-gray-800 rounded-lg p-6 max-w-md w-full">
-            <h2 className="text-xl font-bold text-white mb-4">Create New Case</h2>
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6 max-w-md w-full mx-4">
+            <h2 className="text-lg font-medium text-zinc-100 mb-6">Create New Investigation</h2>
             <form onSubmit={handleCreate}>
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="block text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">
                   Case Name
                 </label>
                 <input
                   type="text"
                   required
-                  className="w-full px-3 py-2 bg-black border border-gray-600 text-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  className="input-modern w-full"
                   value={newCaseName}
                   onChange={(e) => setNewCaseName(e.target.value)}
+                  placeholder="Enter investigation name"
                 />
               </div>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+              <div className="mb-6">
+                <label className="block text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">
                   Description
                 </label>
                 <textarea
                   rows={3}
-                  className="w-full px-3 py-2 bg-black border border-gray-600 text-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  className="input-modern w-full"
                   value={newCaseDesc}
                   onChange={(e) => setNewCaseDesc(e.target.value)}
+                  placeholder="Describe the investigation purpose"
                 />
               </div>
-              <div className="flex justify-end space-x-3">
+              <div className="flex justify-end gap-3">
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="px-4 py-2 text-gray-300 border border-gray-600 rounded-md hover:bg-gray-800"
+                  className="btn-secondary"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={createMutation.isPending}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                  className="btn-primary"
                 >
-                  {createMutation.isPending ? 'Creating...' : 'Create'}
+                  {createMutation.isPending ? 'Creating...' : 'Create Investigation'}
                 </button>
               </div>
             </form>

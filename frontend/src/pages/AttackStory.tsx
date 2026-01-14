@@ -100,8 +100,8 @@ const AttackStory: React.FC = () => {
         </h2>
         <div className="text-zinc-400 text-sm space-y-2">
           <p>
-            This investigation identified <span className="text-zinc-100 font-medium">{stories?.length || 0}</span> security patterns
-            across <span className="text-zinc-100 font-medium">{Object.keys(storiesByStage || {}).length}</span> attack stages.
+            This investigation identified <span className="text-indigo-400 font-semibold">{stories?.length || 0}</span> security patterns
+            across <span className="text-indigo-400 font-semibold">{Object.keys(storiesByStage || {}).length}</span> attack stages.
           </p>
           {stories && stories.length > 0 && (
             <p className="text-base text-zinc-300 mt-4">
