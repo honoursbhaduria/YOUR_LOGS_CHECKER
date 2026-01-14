@@ -2,37 +2,46 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  @apply bg-gray-50;
+@layer base {
+  * {
+    @apply border-zinc-800;
+  }
+  
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', 'Helvetica Neue', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    @apply bg-zinc-950 text-zinc-100;
+  }
+
+  code {
+    font-family: 'SF Mono', ui-monospace, Menlo, Monaco, 'Courier New', monospace;
+  }
 }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
 }
 
-/* Custom scrollbar */
+/* Minimal scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  @apply bg-gray-100;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-gray-400 rounded;
+  background: #3f3f46;
+  border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-gray-500;
+  background: #52525b;
 }
 
 /* Animations */
@@ -47,23 +56,96 @@ code {
   }
 }
 
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(100px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
 .animate-fadeIn {
   animation: fadeIn 0.3s ease-out;
 }
 
+.animate-slideInRight {
+  animation: slideInRight 0.4s ease-out;
+}
+
+/* Minimal card design */
+.modern-card {
+  background: #18181b;
+  border: 1px solid #27272a;
+  border-radius: 8px;
+  transition: border-color 0.2s;
+}
+
+.modern-card:hover {
+  border-color: #3f3f46;
+}
+
+/* Minimal Button Styles */
+.btn-primary {
+  @apply px-4 py-2 rounded-lg text-sm font-medium;
+  @apply bg-zinc-100 text-zinc-950;
+  @apply hover:bg-zinc-200;
+  @apply border border-zinc-200;
+  @apply transition-colors duration-150;
+  @apply disabled:opacity-40 disabled:cursor-not-allowed;
+}
+
+.btn-secondary {
+  @apply px-4 py-2 rounded-lg text-sm font-medium;
+  @apply bg-zinc-900 text-zinc-100;
+  @apply hover:bg-zinc-800;
+  @apply border border-zinc-800;
+  @apply transition-colors duration-150;
+}
+
+.btn-accent {
+  @apply px-4 py-2 rounded-lg text-sm font-medium;
+  @apply bg-indigo-600 text-white;
+  @apply hover:bg-indigo-500;
+  @apply border border-indigo-600;
+  @apply transition-colors duration-150;
+}
+
+/* Input Styles */
+.input-modern {
+  @apply px-3 py-2 rounded-lg text-sm;
+  @apply bg-zinc-900 text-zinc-100;
+  @apply border border-zinc-800;
+  @apply focus:border-zinc-700 focus:outline-none;
+  @apply placeholder-zinc-500;
+  @apply transition-colors duration-150;
+}
+
+
 /* Risk badge colors */
 .risk-low {
-  @apply bg-green-100 text-green-800;
+  @apply bg-emerald-950 text-emerald-400 border border-emerald-900;
 }
 
 .risk-medium {
-  @apply bg-yellow-100 text-yellow-800;
+  @apply bg-amber-950 text-amber-400 border border-amber-900;
 }
 
 .risk-high {
-  @apply bg-orange-100 text-orange-800;
+  @apply bg-orange-950 text-orange-400 border border-orange-900;
 }
 
 .risk-critical {
-  @apply bg-red-100 text-red-800;
+  @apply bg-red-950 text-red-400 border border-red-900;
 }

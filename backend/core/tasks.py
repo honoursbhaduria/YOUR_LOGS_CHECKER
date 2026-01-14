@@ -230,16 +230,17 @@ def generate_story_task(case_id, story_id=None):
 
 
 @shared_task
-def generate_report_task(case_id, format='PDF', user_id=None):
+def generate_report_task(case_id, format='PDF', user_id=None, include_llm_explanations=False):
     """
     Generate forensic report
     
     Args:
         case_id: Case ID
-        format: Report format (PDF or JSON)
+        format: Report format (PDF, PDF_LATEX, CSV, or JSON)
         user_id: User ID generating report
+        include_llm_explanations: Whether to include LLM explanations in report
     """
-    from .models import Case, Report, User
+    from .models import Case, Report, User, ScoredEvent
     from .services.report_generator import report_generator
     from .services.hashing import calculate_string_hash
     from django.core.files.base import ContentFile
@@ -282,9 +283,11 @@ def generate_report_task(case_id, format='PDF', user_id=None):
             case_data['scored_events'].append({
                 'timestamp': event.parsed_event.timestamp,
                 'event_type': event.parsed_event.event_type,
+                'user': event.parsed_event.user or 'N/A',
+                'host': event.parsed_event.host or 'N/A',
                 'confidence': event.confidence,
                 'risk_label': event.risk_label,
-                'inference_text': event.inference_text,
+                'inference_text': event.inference_text if include_llm_explanations else '',
                 'raw_message': event.parsed_event.raw_message,
             })
         
@@ -303,6 +306,19 @@ def generate_report_task(case_id, format='PDF', user_id=None):
             pdf_bytes = report_generator.generate_pdf_report(case_data)
             file_content = ContentFile(pdf_bytes, name=filename)
             file_hash = calculate_string_hash(str(case_data))
+        elif format == 'PDF_LATEX':
+            from .services.latex_report_generator import latex_generator
+            filename = f"report_case_{case.id}_latex.pdf"
+            latex_content, pdf_bytes, csv_data = latex_generator.generate_nested_latex_report(case_data)
+            file_content = ContentFile(pdf_bytes, name=filename)
+            file_hash = calculate_string_hash(latex_content)
+        elif format == 'CSV':
+            from .services.latex_report_generator import latex_generator
+            filename = f"report_case_{case.id}.csv"
+            # Generate CSV from nested report generator
+            _, _, csv_data = latex_generator.generate_nested_latex_report(case_data)
+            file_content = ContentFile(csv_data.encode('utf-8'), name=filename)
+            file_hash = calculate_string_hash(csv_data)
         elif format == 'JSON':
             filename = f"report_case_{case.id}.json"
             json_content = json.dumps(case_data, indent=2, default=str)

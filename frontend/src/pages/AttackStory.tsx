@@ -4,20 +4,20 @@ import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import type { Case, StoryPattern } from '../types';
 
-// Attack stages with colors and icons
+// Attack stages
 const ATTACK_STAGES = [
-  { id: 'reconnaissance', name: 'Reconnaissance', icon: '🔍', color: 'from-purple-600 to-purple-800' },
-  { id: 'initial_access', name: 'Initial Access', icon: '🚪', color: 'from-blue-600 to-blue-800' },
-  { id: 'execution', name: 'Execution', icon: '⚡', color: 'from-yellow-600 to-yellow-800' },
-  { id: 'persistence', name: 'Persistence', icon: '📌', color: 'from-orange-600 to-orange-800' },
-  { id: 'privilege_escalation', name: 'Privilege Escalation', icon: '⬆️', color: 'from-red-600 to-red-800' },
-  { id: 'defense_evasion', name: 'Defense Evasion', icon: '🎭', color: 'from-pink-600 to-pink-800' },
-  { id: 'credential_access', name: 'Credential Access', icon: '🔑', color: 'from-indigo-600 to-indigo-800' },
-  { id: 'discovery', name: 'Discovery', icon: '🗺️', color: 'from-teal-600 to-teal-800' },
-  { id: 'lateral_movement', name: 'Lateral Movement', icon: '↔️', color: 'from-cyan-600 to-cyan-800' },
-  { id: 'collection', name: 'Collection', icon: '📦', color: 'from-green-600 to-green-800' },
-  { id: 'exfiltration', name: 'Exfiltration', icon: '📤', color: 'from-red-700 to-red-900' },
-  { id: 'impact', name: 'Impact', icon: '💥', color: 'from-gray-600 to-gray-800' },
+  { id: 'reconnaissance', name: 'Reconnaissance' },
+  { id: 'initial_access', name: 'Initial Access' },
+  { id: 'execution', name: 'Execution' },
+  { id: 'persistence', name: 'Persistence' },
+  { id: 'privilege_escalation', name: 'Privilege Escalation' },
+  { id: 'defense_evasion', name: 'Defense Evasion' },
+  { id: 'credential_access', name: 'Credential Access' },
+  { id: 'discovery', name: 'Discovery' },
+  { id: 'lateral_movement', name: 'Lateral Movement' },
+  { id: 'collection', name: 'Collection' },
+  { id: 'exfiltration', name: 'Exfiltration' },
+  { id: 'impact', name: 'Impact' },
 ];
 
 const AttackStory: React.FC = () => {
@@ -50,43 +50,43 @@ const AttackStory: React.FC = () => {
   const getSeverityBadge = (severity?: string) => {
     const sev = severity?.toLowerCase() || 'info';
     if (sev === 'critical')
-      return <span className="px-2 py-1 bg-red-900/50 text-red-400 border border-red-700 rounded text-xs font-bold">CRITICAL</span>;
+      return <span className="px-2 py-1 bg-red-950 text-red-400 border border-red-900 rounded-lg text-xs font-medium">CRITICAL</span>;
     if (sev === 'high')
-      return <span className="px-2 py-1 bg-orange-900/50 text-orange-400 border border-orange-700 rounded text-xs font-bold">HIGH</span>;
+      return <span className="px-2 py-1 bg-orange-950 text-orange-400 border border-orange-900 rounded-lg text-xs font-medium">HIGH</span>;
     if (sev === 'medium')
-      return <span className="px-2 py-1 bg-yellow-900/50 text-yellow-400 border border-yellow-700 rounded text-xs font-bold">MEDIUM</span>;
-    return <span className="px-2 py-1 bg-blue-900/50 text-blue-400 border border-blue-700 rounded text-xs font-bold">INFO</span>;
+      return <span className="px-2 py-1 bg-amber-950 text-amber-400 border border-amber-900 rounded-lg text-xs font-medium">MEDIUM</span>;
+    return <span className="px-2 py-1 bg-indigo-950 text-indigo-400 border border-indigo-900 rounded-lg text-xs font-medium">INFO</span>;
   };
 
   return (
-    <div className="px-4 sm:px-6 lg:px-8 py-8 animate-fadeIn">
+    <div className="px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
       <div className="mb-8">
-        <div className="flex items-center space-x-2 text-sm text-gray-400 mb-2">
-          <Link to="/" className="hover:text-gray-300">
+        <div className="flex items-center space-x-2 text-sm text-zinc-500 mb-3">
+          <Link to="/" className="hover:text-zinc-100 transition-colors">
             Dashboard
           </Link>
           <span>→</span>
-          <Link to="/cases" className="hover:text-gray-300">
+          <Link to="/cases" className="hover:text-zinc-100 transition-colors">
             Investigations
           </Link>
           <span>→</span>
-          <Link to={`/cases/${caseId}`} className="hover:text-gray-300">
+          <Link to={`/cases/${caseId}`} className="hover:text-zinc-100 transition-colors">
             {caseData?.name}
           </Link>
           <span>→</span>
-          <span className="text-white">Attack Story</span>
+          <span className="text-zinc-400">Attack Story</span>
         </div>
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-white mb-2">🎯 Attack Story Timeline</h1>
-            <p className="text-gray-400">
+            <h1 className="text-2xl font-semibold text-zinc-100 mb-2">Attack Story Timeline</h1>
+            <p className="text-zinc-500 text-sm">
               AI-generated narrative of the attack based on high-confidence events
             </p>
           </div>
           <Link
             to={`/cases/${caseId}/report`}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold shadow-lg transition"
+            className="btn-primary"
           >
             Generate Report
           </Link>
@@ -94,18 +94,17 @@ const AttackStory: React.FC = () => {
       </div>
 
       {/* Executive Summary */}
-      <div className="bg-gradient-to-r from-red-900/30 to-orange-900/30 border border-red-700/50 rounded-lg p-6 mb-8">
-        <h2 className="text-xl font-bold text-white mb-3 flex items-center">
-          <span className="text-2xl mr-2">📋</span>
+      <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6 mb-8">
+        <h2 className="text-base font-medium text-zinc-100 mb-4">
           Executive Summary
         </h2>
-        <div className="text-gray-300 space-y-2">
+        <div className="text-zinc-400 text-sm space-y-2">
           <p>
-            This investigation identified <span className="text-red-400 font-bold">{stories?.length || 0}</span> security patterns
-            across <span className="text-yellow-400 font-bold">{Object.keys(storiesByStage || {}).length}</span> attack stages.
+            This investigation identified <span className="text-zinc-100 font-medium">{stories?.length || 0}</span> security patterns
+            across <span className="text-zinc-100 font-medium">{Object.keys(storiesByStage || {}).length}</span> attack stages.
           </p>
           {stories && stories.length > 0 && (
-            <p className="text-lg font-semibold text-white mt-4">
+            <p className="text-base text-zinc-300 mt-4">
               {stories[0].narrative_text || 'No narrative generated yet. Processing events...'}
             </p>
           )}
@@ -114,7 +113,7 @@ const AttackStory: React.FC = () => {
 
       {/* Horizontal Timeline */}
       <div className="mb-12">
-        <h2 className="text-2xl font-bold text-white mb-6">Attack Progression</h2>
+        <h2 className="text-base font-medium text-zinc-100 mb-6">Attack Progression</h2>
         
         {/* Timeline Container - Horizontal Scroll */}
         <div className="relative overflow-x-auto pb-8">
@@ -126,30 +125,36 @@ const AttackStory: React.FC = () => {
               return (
                 <div key={stage.id} className="flex flex-col items-center">
                   {/* Timeline Node */}
-                  <div className={`relative flex flex-col items-center ${hasActivity ? 'animate-pulse-slow' : ''}`}>
+                  <div className="relative flex flex-col items-center">
                     {/* Connector Line */}
                     {index > 0 && (
-                      <div className="absolute top-8 right-full w-6 h-0.5 bg-gray-600" />
+                      <div className={`absolute top-6 right-full w-6 h-px ${
+                        hasActivity ? 'bg-zinc-600' : 'bg-zinc-800'
+                      }`} />
                     )}
                     
                     {/* Stage Circle */}
                     <div
-                      className={`w-16 h-16 rounded-full flex items-center justify-center text-3xl shadow-lg ${
+                      className={`w-12 h-12 rounded-full flex items-center justify-center border-2 ${
                         hasActivity
-                          ? `bg-gradient-to-br ${stage.color} ring-4 ring-white/20`
-                          : 'bg-gray-700 opacity-50'
+                          ? 'bg-zinc-800 border-zinc-600'
+                          : 'bg-zinc-900 border-zinc-800'
                       }`}
                     >
-                      {stage.icon}
+                      <div className={`w-3 h-3 rounded-full ${
+                        hasActivity ? 'bg-zinc-400' : 'bg-zinc-700'
+                      }`} />
                     </div>
                     
                     {/* Stage Name */}
                     <div className="mt-3 text-center">
-                      <p className={`text-sm font-bold ${hasActivity ? 'text-white' : 'text-gray-500'}`}>
+                      <p className={`text-xs font-medium ${
+                        hasActivity ? 'text-zinc-300' : 'text-zinc-600'
+                      }`}>
                         {stage.name}
                       </p>
                       {hasActivity && (
-                        <p className="text-xs text-gray-400 mt-1">
+                        <p className="text-xs text-zinc-600 mt-1">
                           {stageStories.length} event{stageStories.length !== 1 ? 's' : ''}
                         </p>
                       )}
@@ -159,36 +164,34 @@ const AttackStory: React.FC = () => {
                   {/* Stage Card */}
                   <div className="mt-6 w-80">
                     {hasActivity ? (
-                      <div className={`bg-gradient-to-br ${stage.color}/20 border border-white/20 rounded-lg p-5 shadow-xl`}>
+                      <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-5">
                         {stageStories.map((story, idx) => (
-                          <div key={story.id} className={idx > 0 ? 'mt-4 pt-4 border-t border-white/10' : ''}>
+                          <div key={story.id} className={idx > 0 ? 'mt-4 pt-4 border-t border-zinc-800' : ''}>
                             {/* Severity Badge */}
-                            <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center justify-between mb-3">
                               {getSeverityBadge('MEDIUM')}
-                              <span className="text-xs text-gray-400">
+                              <span className="text-xs text-zinc-500">
                                 {story.event_count} events
                               </span>
                             </div>
 
                             {/* Story Text */}
-                            <p className="text-sm text-gray-200 mb-3 leading-relaxed">
+                            <p className="text-sm text-zinc-300 mb-3 leading-relaxed">
                               {story.narrative_text || 'No description available'}
                             </p>
 
-                            {/* Key Evidence */}
-
                             {/* Timestamp */}
                             {story.time_span_start && (
-                              <p className="text-xs text-gray-500 mt-2">
-                                ⏱️ {new Date(story.time_span_start).toLocaleString()}
+                              <p className="text-xs text-zinc-600">
+                                {new Date(story.time_span_start).toLocaleString()}
                               </p>
                             )}
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-5 text-center">
-                        <p className="text-sm text-gray-500">No activity detected</p>
+                      <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-5 text-center">
+                        <p className="text-sm text-zinc-600">No activity detected</p>
                       </div>
                     )}
                   </div>
@@ -201,33 +204,28 @@ const AttackStory: React.FC = () => {
 
       {/* Detailed Findings */}
       {stories && stories.length > 0 && (
-        <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-6">
-          <h2 className="text-xl font-bold text-white mb-4">Detailed Findings</h2>
+        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6">
+          <h2 className="text-base font-medium text-zinc-100 mb-4">Detailed Findings</h2>
           <div className="space-y-4">
             {stories.map((story, index) => (
               <div
                 key={story.id}
-                className="bg-gray-900/50 border border-gray-700 rounded-lg p-5"
+                className="bg-zinc-950 border border-zinc-800 rounded-lg p-5"
               >
                 <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center space-x-3">
-                    <span className="text-2xl">
-                      {ATTACK_STAGES.find((s) => s.id === story.attack_phase)?.icon || '🔍'}
-                    </span>
-                    <div>
-                      <h3 className="text-lg font-semibold text-white">
-                        Finding #{index + 1}:{' '}
-                        {ATTACK_STAGES.find((s) => s.id === story.attack_phase)?.name || story.attack_phase}
-                      </h3>
-                      <p className="text-sm text-gray-400">{story.event_count} related events</p>
-                    </div>
+                  <div>
+                    <h3 className="text-base font-medium text-zinc-100">
+                      Finding #{index + 1}:{' '}
+                      {ATTACK_STAGES.find((s) => s.id === story.attack_phase)?.name || story.attack_phase}
+                    </h3>
+                    <p className="text-sm text-zinc-500 mt-1">{story.event_count} related events</p>
                   </div>
                   {getSeverityBadge('MEDIUM')}
                 </div>
 
-                <p className="text-gray-300 mb-4 leading-relaxed">{story.narrative_text}</p>
+                <p className="text-zinc-400 text-sm mb-4 leading-relaxed">{story.narrative_text}</p>
 
-                <div className="flex items-center justify-between text-sm text-gray-500">
+                <div className="flex items-center justify-between text-xs text-zinc-600">
                   <span>
                     {story.time_span_start && `Started: ${new Date(story.time_span_start).toLocaleString()}`}
                   </span>
@@ -241,17 +239,16 @@ const AttackStory: React.FC = () => {
 
       {/* No Stories Message */}
       {(!stories || stories.length === 0) && (
-        <div className="text-center py-12 bg-gray-800/50 border border-gray-700 rounded-lg">
-          <div className="text-6xl mb-4">🤔</div>
-          <h3 className="text-xl font-semibold text-gray-300 mb-2">
+        <div className="text-center py-12 bg-zinc-900 border border-zinc-800 rounded-lg">
+          <h3 className="text-base font-medium text-zinc-300 mb-2">
             No Attack Story Generated Yet
           </h3>
-          <p className="text-gray-500 mb-6">
+          <p className="text-zinc-500 text-sm mb-6">
             Upload and parse evidence files to generate an AI-powered attack narrative
           </p>
           <Link
             to={`/cases/${caseId}`}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold inline-block transition"
+            className="btn-primary inline-block"
           >
             Upload Evidence
           </Link>

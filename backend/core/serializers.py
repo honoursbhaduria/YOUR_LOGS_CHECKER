@@ -150,14 +150,24 @@ class InvestigationNoteSerializer(serializers.ModelSerializer):
 class ReportSerializer(serializers.ModelSerializer):
     """Report serializer"""
     generated_by = UserSerializer(read_only=True)
+    file_path = serializers.SerializerMethodField()
     
     class Meta:
         model = Report
         fields = [
-            'id', 'case', 'format', 'file', 'file_hash',
+            'id', 'case', 'format', 'file', 'file_path', 'file_hash',
             'generated_by', 'generated_at', 'version'
         ]
         read_only_fields = ['id', 'file_hash', 'generated_at']
+    
+    def get_file_path(self, obj):
+        """Return full URL for file download"""
+        if obj.file:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.file.url)
+            return obj.file.url
+        return None
 
 
 class DashboardSummarySerializer(serializers.Serializer):

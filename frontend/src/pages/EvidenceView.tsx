@@ -43,16 +43,18 @@ const EvidenceView: React.FC = () => {
   });
 
   return (
-    <div className="px-4 sm:px-0 animate-fadeIn relative">
-      <h1 className="text-3xl font-bold text-white mb-6 font-mono">$ query evidence --filter=scored</h1>
-      <p className="text-gray-500 font-mono text-sm mb-6">&gt; SELECT * FROM scored_events WHERE confidence &gt; {threshold.toFixed(2)};</p>
+    <div className="px-4 sm:px-0">
+      <div className="mb-8">
+        <h1 className="text-2xl font-semibold text-zinc-100">Evidence Explorer</h1>
+        <p className="text-zinc-500 text-sm mt-2">Filter and analyze scored security events</p>
+      </div>
 
       {/* Filters */}
-      <div className="bg-gray-900 border border-gray-800 rounded-lg p-6 mb-6">
+      <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6 mb-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Threshold Slider */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
+            <label className="block text-xs text-zinc-500 uppercase tracking-wider mb-3">
               Confidence Threshold: {threshold.toFixed(2)}
             </label>
             <input
@@ -64,14 +66,14 @@ const EvidenceView: React.FC = () => {
               onChange={(e) => setThreshold(Number(e.target.value))}
               className="w-full"
             />
-            <div className="flex justify-between text-xs text-gray-400 mt-1">
+            <div className="flex justify-between text-xs text-zinc-600 mt-2">
               <span>0.0</span>
               <span>0.5</span>
               <span>1.0</span>
             </div>
             <button
               onClick={handleApplyThreshold}
-              className="mt-3 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
+              className="btn-primary mt-4"
             >
               Apply Threshold
             </button>
@@ -79,18 +81,18 @@ const EvidenceView: React.FC = () => {
 
           {/* Risk Filter */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
+            <label className="block text-xs text-zinc-500 uppercase tracking-wider mb-3">
               Risk Level Filter
             </label>
-            <div className="flex space-x-2">
+            <div className="flex flex-wrap gap-2">
               {['ALL', 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].map((risk) => (
                 <button
                   key={risk}
                   onClick={() => setFilterRisk(risk)}
-                  className={`px-3 py-2 rounded-md text-sm font-medium ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                     filterRisk === risk
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                      ? 'bg-zinc-100 text-zinc-900'
+                      : 'bg-zinc-800 text-zinc-400 border border-zinc-700 hover:border-zinc-600'
                   }`}
                 >
                   {risk}
@@ -102,66 +104,66 @@ const EvidenceView: React.FC = () => {
       </div>
 
       {/* Events Table */}
-      <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-800">
-          <thead className="bg-black">
+      <div className="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden">
+        <table className="min-w-full divide-y divide-zinc-800">
+          <thead className="bg-zinc-950">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider font-mono">
+              <th className="px-6 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider">
                 Time
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider font-mono">
+              <th className="px-6 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider">
                 Event Type
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider font-mono">
+              <th className="px-6 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider">
                 Confidence
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider font-mono">
+              <th className="px-6 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider">
                 Risk
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider font-mono">
+              <th className="px-6 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider">
                 Explanation
               </th>
             </tr>
           </thead>
-          <tbody className="bg-gray-900 divide-y divide-gray-800">
+          <tbody className="bg-zinc-900 divide-y divide-zinc-800">
             {isLoading ? (
               <tr>
-                <td colSpan={5} className="px-6 py-4 text-center text-gray-400">
+                <td colSpan={5} className="px-6 py-8 text-center text-zinc-600 text-sm">
                   Loading events...
                 </td>
               </tr>
             ) : filteredEvents && filteredEvents.length > 0 ? (
               filteredEvents.map((event) => (
-                <tr key={event.id} className="hover:bg-gray-800">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-white font-mono">
+                <tr key={event.id} className="hover:bg-zinc-800/50 transition-colors">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-zinc-300">
                     {new Date(event.timestamp).toLocaleString()}
                   </td>
-                  <td className="px-6 py-4 text-sm text-white font-mono">
+                  <td className="px-6 py-4 text-sm text-zinc-100">
                     {event.event_type}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="w-16 bg-gray-800 rounded-full h-2 mr-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-12 bg-zinc-800 rounded-full h-1.5">
                         <div
-                          className="bg-blue-600 h-2 rounded-full"
+                          className="bg-zinc-400 h-1.5 rounded-full"
                           style={{ width: `${event.confidence * 100}%` }}
                         />
                       </div>
-                      <span className="text-sm text-white font-mono">
+                      <span className="text-sm text-zinc-400 min-w-[2.5rem]">
                         {event.confidence.toFixed(2)}
                       </span>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span
-                      className={`px-2 py-1 text-xs font-semibold rounded font-mono risk-${event.risk_label.toLowerCase()}`}
+                      className={`px-2 py-1 text-xs font-medium rounded-lg risk-${event.risk_label.toLowerCase()}`}
                     >
                       {event.risk_label}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-300">
+                  <td className="px-6 py-4 text-sm text-zinc-400">
                     {event.inference_text || (
-                      <span className="text-gray-500 italic">
+                      <span className="text-zinc-600 italic">
                         No explanation yet
                       </span>
                     )}
@@ -170,7 +172,7 @@ const EvidenceView: React.FC = () => {
               ))
             ) : (
               <tr>
-                <td colSpan={5} className="px-6 py-4 text-center text-gray-400">
+                <td colSpan={5} className="px-6 py-8 text-center text-zinc-600 text-sm">
                   No events match the current filters
                 </td>
               </tr>
@@ -180,7 +182,7 @@ const EvidenceView: React.FC = () => {
       </div>
 
       {filteredEvents && (
-        <div className="mt-4 text-sm text-gray-400 text-center">
+        <div className="mt-6 text-sm text-zinc-600 text-center">
           Showing {filteredEvents.length} of {events?.length || 0} events
         </div>
       )}

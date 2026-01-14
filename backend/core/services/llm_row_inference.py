@@ -12,7 +12,7 @@ class LLMInferenceService:
     Supports OpenAI, Anthropic, and Google Gemini
     """
     
-    def __init__(self, provider: str = 'openai', model: str = 'gpt-4'):
+    def __init__(self, provider: str = 'google', model: str = 'gemini-2.5-flash'):
         """
         Initialize LLM service
         
@@ -32,7 +32,10 @@ class LLMInferenceService:
             self.client = Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
         elif provider == 'google':
             import google.generativeai as genai
-            genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
+            api_key = os.getenv('GOOGLE_API_KEY')
+            if not api_key:
+                raise ValueError("GOOGLE_API_KEY not found in environment variables")
+            genai.configure(api_key=api_key)
             self.client = genai.GenerativeModel(model)
         else:
             raise ValueError(f"Unsupported provider: {provider}")
@@ -115,6 +118,6 @@ Provide a concise, technical explanation of what this event means and why it mig
 # Singleton instance
 def get_llm_service() -> LLMInferenceService:
     """Get configured LLM service instance"""
-    provider = os.getenv('DEFAULT_LLM_PROVIDER', 'openai')
-    model = os.getenv('DEFAULT_LLM_MODEL', 'gpt-4')
+    provider = os.getenv('DEFAULT_LLM_PROVIDER', 'google')
+    model = os.getenv('DEFAULT_LLM_MODEL', 'gemini-2.5-flash')
     return LLMInferenceService(provider=provider, model=model)

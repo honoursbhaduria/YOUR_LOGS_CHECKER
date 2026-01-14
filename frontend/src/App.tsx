@@ -58,6 +58,7 @@ function App() {
           <Route path="cases/:caseId/story" element={<AttackStory />} />
           <Route path="cases/:caseId/report" element={<ReportGeneration />} />
           <Route path="cases/:caseId/evidence" element={<EvidenceView />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
     </BrowserRouter>

@@ -3,10 +3,19 @@ import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import type { Case, Report } from '../types';
+import LaTeXEditor from '../components/LaTeXEditor';
 
 const ReportGeneration: React.FC = () => {
   const { caseId } = useParams<{ caseId: string }>();
   const [generating, setGenerating] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+  const [reportFormat, setReportFormat] = useState<'PDF_LATEX' | 'CSV'>('PDF_LATEX');
+  const [downloadingCombined, setDownloadingCombined] = useState(false);
+  const [showLatexEditor, setShowLatexEditor] = useState(false);
+  const [latexSource, setLatexSource] = useState('');
+  const [loadingLatex, setLoadingLatex] = useState(false);
+  const [compilingLatex, setCompilingLatex] = useState(false);
 
   const { data: caseData } = useQuery<Case>({
     queryKey: ['case', caseId],
@@ -16,7 +25,7 @@ const ReportGeneration: React.FC = () => {
     },
   });
 
-  const { data: reports } = useQuery<Report[]>({
+  const { data: reports, refetch } = useQuery<Report[]>({
     queryKey: ['reports', caseId],
     queryFn: async () => {
       const response = await apiClient.getReports(Number(caseId));
@@ -25,45 +34,167 @@ const ReportGeneration: React.FC = () => {
   });
 
   const generateMutation = useMutation({
-    mutationFn: () => apiClient.generateReport(Number(caseId)),
+    mutationFn: (format: string) => apiClient.generateReport(Number(caseId), format),
     onSuccess: () => {
       setGenerating(false);
-      alert('Report generated successfully!');
+      setSuccessMessage(`${reportFormat === 'PDF_LATEX' ? 'LaTeX PDF' : 'CSV'} report generated successfully!`);
+      setErrorMessage('');
+      setTimeout(() => setSuccessMessage(''), 5000);
+      refetch();
     },
     onError: (error: any) => {
       setGenerating(false);
-      alert(`Error: ${error.response?.data?.detail || error.message}`);
+      setErrorMessage(error.response?.data?.detail || error.message || 'Failed to generate report');
+      setSuccessMessage('');
     },
   });
 
   const handleGenerate = () => {
     setGenerating(true);
-    generateMutation.mutate();
+    generateMutation.mutate(reportFormat);
+  };
+
+  const handleDownload = async (reportId: number, filename: string) => {
+    try {
+      const response = await apiClient.downloadReport(reportId);
+      
+      // Create blob and download
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      setSuccessMessage('Download started successfully!');
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (error: any) {
+      setErrorMessage('Failed to download report: ' + (error.message || 'Unknown error'));
+      setTimeout(() => setErrorMessage(''), 5000);
+    }
+  };
+
+  const handleDownloadCombined = async () => {
+    setDownloadingCombined(true);
+    try {
+      const response = await apiClient.generateCombinedReport(Number(caseId));
+      
+      // Create blob and download
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `report_case_${caseId}_combined.zip`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      setSuccessMessage('Combined report (PDF + CSV) downloaded successfully!');
+      setTimeout(() => setSuccessMessage(''), 5000);
+    } catch (error: any) {
+      setErrorMessage('Failed to download combined report: ' + (error.message || 'Unknown error'));
+      setTimeout(() => setErrorMessage(''), 5000);
+    } finally {
+      setDownloadingCombined(false);
+    }
+  };
+
+  const handlePreviewLatex = async () => {
+    setLoadingLatex(true);
+    try {
+      const response = await apiClient.previewLatex(Number(caseId));
+      setLatexSource(response.data.latex_source);
+      setShowLatexEditor(true);
+      setSuccessMessage('LaTeX source loaded successfully!');
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (error: any) {
+      setErrorMessage('Failed to load LaTeX preview: ' + (error.message || 'Unknown error'));
+      setTimeout(() => setErrorMessage(''), 5000);
+    } finally {
+      setLoadingLatex(false);
+    }
+  };
+
+  const handleCompileLatex = async (customLatexSource: string, download: boolean): Promise<Blob | null> => {
+    setCompilingLatex(true);
+    try {
+      const response = await apiClient.compileCustomLatex(
+        customLatexSource,
+        `report_case_${caseId}_custom.pdf`
+      );
+      
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      
+      if (download) {
+        // Create blob and download
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `report_case_${caseId}_custom.pdf`);
+        document.body.appendChild(link);
+        link.click();
+        link.parentNode?.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        
+        setSuccessMessage('Custom LaTeX compiled and downloaded successfully!');
+        setTimeout(() => setSuccessMessage(''), 5000);
+      }
+      
+      return blob;
+    } catch (error: any) {
+      setErrorMessage('Failed to compile LaTeX: ' + (error.message || 'Unknown error'));
+      setTimeout(() => setErrorMessage(''), 5000);
+      return null;
+    } finally {
+      setCompilingLatex(false);
+    }
   };
 
   const latestReport = reports?.[0];
 
   return (
-    <div className="px-4 sm:px-6 lg:px-8 py-8 animate-fadeIn">
+    <div className="px-4 sm:px-6 lg:px-8 py-8">
+      {/* Toast Notifications - Top Right Corner */}
+      {successMessage && (
+        <div className="fixed top-4 right-4 z-50 animate-slideInRight">
+          <div className="bg-emerald-950 text-emerald-100 border border-emerald-900 px-6 py-4 rounded-lg flex items-center space-x-3 min-w-[300px] max-w-md">
+            <div className="flex-1">
+              <p className="font-medium text-sm">{successMessage}</p>
+            </div>
+          </div>
+        </div>
+      )}
+      {errorMessage && (
+        <div className="fixed top-4 right-4 z-50 animate-slideInRight">
+          <div className="bg-red-950 text-red-100 border border-red-900 px-6 py-4 rounded-lg flex items-center space-x-3 min-w-[300px] max-w-md">
+            <div className="flex-1">
+              <p className="font-medium text-sm">{errorMessage}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="mb-8">
-        <div className="flex items-center space-x-2 text-sm text-gray-400 mb-2">
-          <Link to="/" className="hover:text-gray-300">
+        <div className="flex items-center space-x-2 text-sm text-zinc-500 mb-3">
+          <Link to="/" className="hover:text-zinc-100 transition-colors">
             Dashboard
           </Link>
           <span>→</span>
-          <Link to="/cases" className="hover:text-gray-300">
+          <Link to="/cases" className="hover:text-zinc-100 transition-colors">
             Investigations
           </Link>
           <span>→</span>
-          <Link to={`/cases/${caseId}`} className="hover:text-gray-300">
+          <Link to={`/cases/${caseId}`} className="hover:text-zinc-100 transition-colors">
             {caseData?.name}
           </Link>
           <span>→</span>
-          <span className="text-white">Report</span>
+          <span className="text-zinc-400">Report</span>
         </div>
-        <h1 className="text-3xl font-bold text-white mb-2">📄 Investigation Report</h1>
-        <p className="text-gray-400">
+        <h1 className="text-2xl font-semibold text-zinc-100 mb-2">Investigation Report</h1>
+        <p className="text-zinc-500 text-sm">
           Generate comprehensive PDF/CSV reports with executive summary, timeline, and evidence
         </p>
       </div>
@@ -71,67 +202,109 @@ const ReportGeneration: React.FC = () => {
       {/* Report Generation Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         {/* Generate Report Card */}
-        <div className="bg-gradient-to-br from-blue-900/30 to-indigo-900/30 border border-blue-700/50 rounded-lg p-8">
+        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-8">
           <div className="text-center">
-            <div className="text-6xl mb-4">📊</div>
-            <h2 className="text-2xl font-bold text-white mb-3">Generate New Report</h2>
-            <p className="text-gray-300 mb-6">
-              Create a comprehensive investigation report including all findings, timeline, and evidence
+            <h2 className="text-lg font-medium text-zinc-100 mb-3">Generate New Report</h2>
+            <p className="text-zinc-500 text-sm mb-6">
+              Create a professional forensic report with LaTeX formatting or export to CSV
             </p>
-            <button
-              onClick={handleGenerate}
-              disabled={generating}
-              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-8 py-4 rounded-lg font-semibold shadow-lg transition text-lg"
-            >
-              {generating ? (
-                <>
-                  <span className="animate-spin inline-block mr-2">⚙️</span>
-                  Generating...
-                </>
-              ) : (
-                '✨ Generate Report'
-              )}
-            </button>
+            
+            {/* Format Selector */}
+            <div className="mb-6">
+              <label className="block text-xs text-zinc-500 uppercase tracking-wider mb-3">Report Format</label>
+              <div className="flex space-x-3 justify-center">
+                <button
+                  onClick={() => setReportFormat('PDF_LATEX')}
+                  className={`px-6 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    reportFormat === 'PDF_LATEX'
+                      ? 'bg-zinc-100 text-zinc-900'
+                      : 'bg-zinc-800 text-zinc-400 border border-zinc-700 hover:border-zinc-600'
+                  }`}
+                >
+                  LaTeX PDF
+                </button>
+                <button
+                  onClick={() => setReportFormat('CSV')}
+                  className={`px-6 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    reportFormat === 'CSV'
+                      ? 'bg-zinc-100 text-zinc-900'
+                      : 'bg-zinc-800 text-zinc-400 border border-zinc-700 hover:border-zinc-600'
+                  }`}
+                >
+                  CSV Export
+                </button>
+              </div>
+            </div>
+            
+            <div className="space-y-3">
+              <button
+                onClick={handleGenerate}
+                disabled={generating}
+                className="btn-primary w-full"
+              >
+                {generating ? 'Generating...' : `Generate ${reportFormat === 'PDF_LATEX' ? 'LaTeX PDF' : 'CSV'}`}
+              </button>
+              
+              <button
+                onClick={handlePreviewLatex}
+                disabled={loadingLatex}
+                className="btn-secondary w-full"
+              >
+                {loadingLatex ? 'Loading...' : 'Preview & Edit LaTeX'}
+              </button>
+              
+              <button
+                onClick={handleDownloadCombined}
+                disabled={downloadingCombined}
+                className="btn-secondary w-full"
+              >
+                {downloadingCombined ? 'Preparing...' : 'Download Combined (PDF + CSV)'}
+              </button>
+            </div>
+            
+            <p className="mt-4 text-xs text-zinc-600">
+              Preview & Edit: Customize LaTeX before generating PDF • Combined: ZIP with PDF + CSV
+            </p>
           </div>
         </div>
 
         {/* Report Preview Card */}
-        <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-6">
-          <h2 className="text-xl font-bold text-white mb-4">Report Contents</h2>
+        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6">
+          <h2 className="text-base font-medium text-zinc-100 mb-4">Report Contents</h2>
           <ul className="space-y-3">
             <li className="flex items-start">
-              <span className="text-green-400 mr-3">✓</span>
+              <span className="text-emerald-400 mr-3 mt-0.5">✓</span>
               <div>
-                <p className="text-white font-semibold">Executive Summary</p>
-                <p className="text-sm text-gray-400">High-level overview of findings</p>
+                <p className="text-zinc-100 font-medium text-sm">Nested Structure (LaTeX PDF)</p>
+                <p className="text-xs text-zinc-500 mt-1">Hierarchical sections with subsections and tables</p>
               </div>
             </li>
             <li className="flex items-start">
-              <span className="text-green-400 mr-3">✓</span>
+              <span className="text-emerald-400 mr-3 mt-0.5">✓</span>
               <div>
-                <p className="text-white font-semibold">Attack Timeline</p>
-                <p className="text-sm text-gray-400">Chronological sequence of events</p>
+                <p className="text-zinc-100 font-medium text-sm">Executive Summary</p>
+                <p className="text-xs text-zinc-500 mt-1">High-level overview with attack stories</p>
               </div>
             </li>
             <li className="flex items-start">
-              <span className="text-green-400 mr-3">✓</span>
+              <span className="text-emerald-400 mr-3 mt-0.5">✓</span>
               <div>
-                <p className="text-white font-semibold">Evidence Table</p>
-                <p className="text-sm text-gray-400">Detailed event logs and artifacts</p>
+                <p className="text-zinc-100 font-medium text-sm">Event Analysis by Risk Level</p>
+                <p className="text-xs text-zinc-500 mt-1">Events categorized by confidence level</p>
               </div>
             </li>
             <li className="flex items-start">
-              <span className="text-green-400 mr-3">✓</span>
+              <span className="text-emerald-400 mr-3 mt-0.5">✓</span>
               <div>
-                <p className="text-white font-semibold">AI Analysis</p>
-                <p className="text-sm text-gray-400">Machine learning insights and patterns</p>
+                <p className="text-zinc-100 font-medium text-sm">Chain of Custody</p>
+                <p className="text-xs text-zinc-500 mt-1">Evidence tracking and file hashes</p>
               </div>
             </li>
             <li className="flex items-start">
-              <span className="text-green-400 mr-3">✓</span>
+              <span className="text-emerald-400 mr-3 mt-0.5">✓</span>
               <div>
-                <p className="text-white font-semibold">Recommendations</p>
-                <p className="text-sm text-gray-400">Remediation and prevention steps</p>
+                <p className="text-zinc-100 font-medium text-sm">CSV Data Export</p>
+                <p className="text-xs text-zinc-500 mt-1">Structured data for analysis tools</p>
               </div>
             </li>
           </ul>
@@ -140,53 +313,57 @@ const ReportGeneration: React.FC = () => {
 
       {/* Previous Reports */}
       {latestReport && (
-        <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-6">
-          <h2 className="text-xl font-bold text-white mb-4">Latest Report</h2>
-          <div className="bg-gray-900/50 border border-gray-700 rounded-lg p-6">
+        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6">
+          <h2 className="text-base font-medium text-zinc-100 mb-4">Latest Report</h2>
+          <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-6">
             <div className="flex items-start justify-between mb-4">
               <div>
-                <h3 className="text-lg font-semibold text-white mb-1">
-                  {latestReport.title || 'Investigation Report'}
+                <h3 className="text-base font-medium text-zinc-100 mb-1">
+                  {latestReport.format === 'PDF_LATEX' ? 'LaTeX PDF Report' : 
+                   latestReport.format === 'CSV' ? 'CSV Export' : 'PDF Report'}
                 </h3>
-                <p className="text-sm text-gray-400">
-                  Generated on {new Date(latestReport.created_at || latestReport.generated_at).toLocaleString()}
+                <p className="text-sm text-zinc-500">
+                  Version {latestReport.version} • Generated on {new Date(latestReport.created_at || latestReport.generated_at).toLocaleString()}
                 </p>
               </div>
-              <span className="px-3 py-1 bg-green-900/50 text-green-400 border border-green-700 rounded text-sm font-semibold">
-                Ready
+              <span className={`px-2 py-1 border rounded-lg text-xs font-medium ${
+                latestReport.format === 'PDF_LATEX' ? 'bg-indigo-950 text-indigo-400 border-indigo-900' :
+                latestReport.format === 'CSV' ? 'bg-emerald-950 text-emerald-400 border-emerald-900' :
+                'bg-zinc-800 text-zinc-400 border-zinc-700'
+              }`}>
+                {latestReport.format}
               </span>
             </div>
 
-            {/* Report Preview */}
-            <div className="bg-black/30 rounded p-4 mb-4 max-h-64 overflow-y-auto">
-              <pre className="text-sm text-gray-300 whitespace-pre-wrap">
-                {latestReport.content || 'Report content not available'}
-              </pre>
+            {/* Report Info */}
+            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 mb-4">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <span className="text-zinc-600">Format:</span>
+                  <span className="text-zinc-300 ml-2">{latestReport.format}</span>
+                </div>
+                <div>
+                  <span className="text-zinc-600">Version:</span>
+                  <span className="text-zinc-300 ml-2">v{latestReport.version}</span>
+                </div>
+                <div className="col-span-2">
+                  <span className="text-zinc-600">Hash:</span>
+                  <span className="text-zinc-400 ml-2 text-xs font-mono">{latestReport.file_hash?.substring(0, 32)}...</span>
+                </div>
+              </div>
             </div>
 
             {/* Download Buttons */}
             <div className="flex space-x-3">
-              <a
-                href={latestReport.file_path || '#'}
-                download
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg font-semibold text-center transition"
-              >
-                📥 Download PDF
-              </a>
               <button
                 onClick={() => {
-                  // Export as CSV
-                  const csv = latestReport.content || '';
-                  const blob = new Blob([csv], { type: 'text/csv' });
-                  const url = window.URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = `report-${caseId}.csv`;
-                  a.click();
+                  const ext = latestReport.format === 'CSV' ? 'csv' : 
+                             latestReport.format === 'JSON' ? 'json' : 'pdf';
+                  handleDownload(latestReport.id, `report_case_${caseData?.id}_v${latestReport.version}.${ext}`);
                 }}
-                className="flex-1 bg-gray-700 hover:bg-gray-600 text-white px-4 py-3 rounded-lg font-semibold transition"
+                className="btn-primary flex-1"
               >
-                📊 Export CSV
+                Download {latestReport.format === 'CSV' ? 'CSV' : latestReport.format === 'JSON' ? 'JSON' : 'PDF'}
               </button>
             </div>
           </div>
@@ -195,12 +372,11 @@ const ReportGeneration: React.FC = () => {
 
       {/* No Reports Message */}
       {(!reports || reports.length === 0) && !generating && (
-        <div className="text-center py-12 bg-gray-800/50 border border-gray-700 rounded-lg">
-          <div className="text-6xl mb-4">📝</div>
-          <h3 className="text-xl font-semibold text-gray-300 mb-2">
+        <div className="text-center py-12 bg-zinc-900 border border-zinc-800 rounded-lg">
+          <h3 className="text-base font-medium text-zinc-300 mb-2">
             No Reports Generated Yet
           </h3>
-          <p className="text-gray-500 mb-6">
+          <p className="text-zinc-500 text-sm mb-6">
             Generate your first report to get a comprehensive analysis of this investigation
           </p>
         </div>
@@ -210,11 +386,22 @@ const ReportGeneration: React.FC = () => {
       <div className="mt-8 text-center">
         <Link
           to={`/cases/${caseId}`}
-          className="text-blue-400 hover:text-blue-300 font-semibold"
+          className="text-zinc-400 hover:text-zinc-100 text-sm transition-colors"
         >
           ← Back to Investigation
         </Link>
       </div>
+
+      {/* LaTeX Editor Modal */}
+      {showLatexEditor && latexSource && (
+        <LaTeXEditor
+          initialLatex={latexSource}
+          caseName={caseData?.name || 'Report'}
+          onCompile={handleCompileLatex}
+          onClose={() => setShowLatexEditor(false)}
+          isCompiling={compilingLatex}
+        />
+      )}
     </div>
   );
 };

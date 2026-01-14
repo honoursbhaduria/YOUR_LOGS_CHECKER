@@ -23,7 +23,7 @@ class StorySynthesisService:
         'EXFILTRATION',
     ]
     
-    def __init__(self, provider: str = 'openai', model: str = 'gpt-4'):
+    def __init__(self, provider: str = 'google', model: str = 'gemini-2.5-flash'):
         self.provider = provider
         self.model = model
         
@@ -34,6 +34,13 @@ class StorySynthesisService:
         elif provider == 'anthropic':
             from anthropic import Anthropic
             self.client = Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
+        elif provider == 'google':
+            import google.generativeai as genai
+            api_key = os.getenv('GOOGLE_API_KEY')
+            if not api_key:
+                raise ValueError("GOOGLE_API_KEY not found in environment variables")
+            genai.configure(api_key=api_key)
+            self.client = genai.GenerativeModel(model)
     
     def synthesize_story(self, scored_events: List[Dict]) -> Dict:
         """
@@ -129,6 +136,16 @@ Write 2-3 paragraphs. Be specific but executive-friendly. Focus on the story, no
                 messages=[{"role": "user", "content": prompt}]
             )
             return response.content[0].text
+        elif self.provider == 'google':
+            full_prompt = f"You are a senior cybersecurity forensic analyst specializing in attack chain reconstruction.\n\n{prompt}"
+            response = self.client.generate_content(
+                full_prompt,
+                generation_config={
+                    'temperature': 0.5,
+                    'max_output_tokens': 500,
+                }
+            )
+            return response.text
         
         return "LLM not configured"
     
@@ -175,6 +192,6 @@ Write 2-3 paragraphs. Be specific but executive-friendly. Focus on the story, no
 
 def get_story_service() -> StorySynthesisService:
     """Get configured story synthesis service"""
-    provider = os.getenv('DEFAULT_LLM_PROVIDER', 'openai')
-    model = os.getenv('DEFAULT_LLM_MODEL', 'gpt-4')
+    provider = os.getenv('DEFAULT_LLM_PROVIDER', 'google')
+    model = os.getenv('DEFAULT_LLM_MODEL', 'gemini-2.5-flash')
     return StorySynthesisService(provider=provider, model=model)

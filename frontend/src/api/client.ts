@@ -205,7 +205,37 @@ class ApiClient {
   }
 
   async downloadReport(id: number) {
-    return this.client.get(`/report/${id}/download/`);
+    // Get file directly with proper response type
+    return this.client.get(`/report/${id}/download/`, {
+      responseType: 'blob',
+    });
+  }
+  
+  async generateCombinedReport(caseId: number) {
+    // Generate both PDF and CSV in a ZIP file
+    return this.client.post(`/report/generate_combined/`, 
+      { case_id: caseId },
+      { responseType: 'blob' }
+    );
+  }
+  
+  async previewLatex(caseId: number) {
+    // Generate LaTeX source code for preview/editing
+    return this.client.post('/report/preview_latex/', { case_id: caseId });
+  }
+  
+  async compileCustomLatex(latexSource: string, filename: string = 'custom_report.pdf') {
+    // Compile custom LaTeX to PDF
+    return this.client.post('/report/compile_custom_latex/', 
+      { latex_source: latexSource, filename },
+      { responseType: 'blob' }
+    );
+  }
+  
+  getReportDownloadUrl(id: number): string {
+    // Helper to construct direct download URL
+    const token = localStorage.getItem('access_token');
+    return `${API_BASE_URL}/report/${id}/download/?token=${token}`;
   }
 
   // Dashboard endpoints

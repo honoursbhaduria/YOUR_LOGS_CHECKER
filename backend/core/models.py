@@ -243,16 +243,18 @@ class InvestigationNote(models.Model):
 
 class Report(models.Model):
     """
-    Generated forensic reports (PDF/JSON)
+    Generated forensic reports (PDF/JSON/CSV/LaTeX)
     """
     REPORT_FORMATS = [
         ('PDF', 'PDF'),
+        ('PDF_LATEX', 'LaTeX PDF'),
+        ('CSV', 'CSV'),
         ('JSON', 'JSON'),
     ]
     
     case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name='reports')
     
-    format = models.CharField(max_length=10, choices=REPORT_FORMATS)
+    format = models.CharField(max_length=20, choices=REPORT_FORMATS)
     file = models.FileField(upload_to='reports/%Y/%m/%d/')
     file_hash = models.CharField(max_length=64)  # SHA-256 of report
     

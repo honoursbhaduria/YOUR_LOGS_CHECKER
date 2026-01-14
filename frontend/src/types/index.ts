@@ -103,7 +103,7 @@ export interface InvestigationNote {
 export interface Report {
   id: number;
   case: number;
-  format: 'PDF' | 'JSON';
+  format: 'PDF' | 'PDF_LATEX' | 'CSV' | 'JSON';
   file: string;
   file_hash: string;
   generated_by: User;

@@ -12,6 +12,10 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Count, Q, Avg
 from django.utils import timezone
 from django.conf import settings
+from datetime import datetime
+import logging
+
+logger = logging.getLogger(__name__)
 
 from .models import (
     Case, EvidenceFile, ParsedEvent, ScoredEvent,
@@ -153,9 +157,11 @@ class CaseViewSet(viewsets.ModelViewSet):
         format_type = request.data.get('format', 'pdf').upper()
         include_llm = request.data.get('include_llm_explanations', True)
         
-        if format_type not in ['PDF', 'JSON']:
+        # Support multiple formats: PDF, PDF_LATEX, CSV, JSON
+        valid_formats = ['PDF', 'PDF_LATEX', 'CSV', 'JSON']
+        if format_type not in valid_formats:
             return Response(
-                {'error': 'Invalid format. Use "pdf" or "json".'},
+                {'error': f'Invalid format. Use one of: {", ".join(valid_formats)}'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
@@ -509,15 +515,298 @@ class ReportViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['get'])
     def download(self, request, pk=None):
-        """Download report file"""
+        """Download report file - serves file directly"""
+        from django.http import FileResponse
+        import os
+        
         report = self.get_object()
         
-        # Return file URL (served by Django static/media)
+        # Check if file exists
+        if not report.file or not os.path.exists(report.file.path):
+            return Response(
+                {'error': 'Report file not found on server'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Determine content type based on format
+        content_types = {
+            'PDF': 'application/pdf',
+            'PDF_LATEX': 'application/pdf',
+            'CSV': 'text/csv',
+            'JSON': 'application/json',
+        }
+        content_type = content_types.get(report.format, 'application/octet-stream')
+        
+        # Create filename
+        extension = report.format.lower() if report.format != 'PDF_LATEX' else 'pdf'
+        filename = f"report_case_{report.case.id}_v{report.version}.{extension}"
+        
+        # Open and return file
+        try:
+            file_response = FileResponse(
+                open(report.file.path, 'rb'),
+                as_attachment=True,
+                filename=filename,
+                content_type=content_type
+            )
+            return file_response
+        except Exception as e:
+            return Response(
+                {'error': f'Failed to download file: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    @action(detail=True, methods=['get'])
+    def preview_url(self, request, pk=None):
+        """Get preview URL for report (for API consumers who need URL)"""
+        report = self.get_object()
+        
         return Response({
-            'download_url': report.file.url,
+            'preview_url': report.file.url,
             'filename': f"report_case_{report.case.id}_v{report.version}.{report.format.lower()}",
-            'hash': report.file_hash
+            'format': report.format,
+            'hash': report.file_hash,
+            'generated_at': report.generated_at.isoformat(),
+            'size_mb': report.file.size / (1024*1024) if report.file else 0
         })
+    
+    @action(detail=False, methods=['post'])
+    def preview_latex(self, request):
+        """Generate LaTeX source code for preview/editing"""
+        case_id = request.data.get('case_id')
+        if not case_id:
+            return Response({'error': 'case_id required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            from .models import Case, ScoredEvent
+            from .services.latex_report_generator import latex_generator
+            
+            try:
+                case = Case.objects.get(id=case_id)
+            except Case.DoesNotExist:
+                return Response(
+                    {'error': f'Case with id {case_id} not found'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            # Prepare case data
+            case_data = {
+                'case': {
+                    'name': case.name,
+                    'description': case.description or '',
+                    'status': case.status,
+                    'created_by': case.created_by.username if case.created_by else 'Unknown',
+                    'created_at': case.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                },
+                'evidence_files': [],
+                'scored_events': [],
+                'stories': [],
+            }
+            
+            # Evidence files
+            for evidence in case.evidence_files.all():
+                case_data['evidence_files'].append({
+                    'filename': evidence.filename or 'Unknown',
+                    'file_hash': evidence.file_hash or '',
+                    'uploaded_at': evidence.uploaded_at.strftime('%Y-%m-%d %H:%M:%S'),
+                    'uploaded_by': evidence.uploaded_by.username if evidence.uploaded_by else 'Unknown',
+                })
+            
+            # Scored events
+            scored_events = ScoredEvent.objects.filter(
+                parsed_event__evidence_file__case=case,
+                is_archived=False
+            ).select_related('parsed_event').order_by('-confidence')[:500]
+            
+            for event in scored_events:
+                case_data['scored_events'].append({
+                    'timestamp': str(event.parsed_event.timestamp) if event.parsed_event.timestamp else '',
+                    'event_type': event.parsed_event.event_type or '',
+                    'user': event.parsed_event.user or 'N/A',
+                    'host': event.parsed_event.host or 'N/A',
+                    'confidence': float(event.confidence),
+                    'risk_label': event.risk_label or 'UNKNOWN',
+                    'inference_text': event.inference_text or '',
+                    'raw_message': event.parsed_event.raw_message or '',
+                })
+            
+            # Story patterns
+            for story in case.story_patterns.all():
+                case_data['stories'].append({
+                    'title': story.title or 'Untitled',
+                    'narrative': story.narrative_text or '',
+                    'attack_phase': story.attack_phase or 'Unknown',
+                    'avg_confidence': float(story.avg_confidence) if story.avg_confidence else 0.0,
+                })
+            
+            # Generate LaTeX source
+            try:
+                latex_source = latex_generator.generate_latex_preview(case_data)
+            except Exception as latex_error:
+                logger.error(f"LaTeX generation error: {str(latex_error)}", exc_info=True)
+                return Response(
+                    {'error': f'LaTeX generation failed: {str(latex_error)}'},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+            
+            return Response({
+                'latex_source': latex_source,
+                'case_name': case.name,
+                'event_count': len(case_data['scored_events']),
+                'story_count': len(case_data['stories'])
+            })
+            
+        except Exception as e:
+            logger.error(f"Error generating LaTeX preview: {str(e)}")
+            return Response(
+                {'error': f'Failed to generate preview: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    @action(detail=False, methods=['post'])
+    def compile_custom_latex(self, request):
+        """Compile custom LaTeX source code to PDF"""
+        from django.http import FileResponse
+        import io
+        
+        latex_source = request.data.get('latex_source')
+        filename = request.data.get('filename', 'custom_report.pdf')
+        
+        if not latex_source:
+            return Response({'error': 'latex_source required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            from .services.latex_report_generator import latex_generator
+            
+            # Compile custom LaTeX
+            pdf_bytes, error = latex_generator.compile_custom_latex(latex_source)
+            
+            if error:
+                return Response(
+                    {'error': f'LaTeX compilation failed: {error}'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Return PDF file
+            pdf_buffer = io.BytesIO(pdf_bytes)
+            return FileResponse(
+                pdf_buffer,
+                as_attachment=True,
+                filename=filename,
+                content_type='application/pdf'
+            )
+            
+        except Exception as e:
+            logger.error(f"Error compiling custom LaTeX: {str(e)}")
+            return Response(
+                {'error': f'Failed to compile: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    @action(detail=False, methods=['post'])
+    def generate_combined(self, request):
+        """Generate nested LaTeX PDF report with accompanying CSV"""
+        from django.http import FileResponse
+        import zipfile
+        import os
+        
+        case_id = request.data.get('case_id')
+        if not case_id:
+            return Response({'error': 'case_id required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            from .models import Case, ScoredEvent
+            from .services.latex_report_generator import latex_generator
+            
+            case = Case.objects.get(id=case_id)
+            
+            # Prepare case data
+            case_data = {
+                'case': {
+                    'name': case.name,
+                    'description': case.description,
+                    'status': case.status,
+                    'created_by': case.created_by.username,
+                    'created_at': case.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                },
+                'evidence_files': [],
+                'scored_events': [],
+                'stories': [],
+            }
+            
+            # Evidence files
+            for evidence in case.evidence_files.all():
+                case_data['evidence_files'].append({
+                    'filename': evidence.filename,
+                    'file_hash': evidence.file_hash,
+                    'uploaded_at': evidence.uploaded_at.strftime('%Y-%m-%d %H:%M:%S'),
+                    'uploaded_by': evidence.uploaded_by.username,
+                })
+            
+            # Scored events
+            scored_events = ScoredEvent.objects.filter(
+                parsed_event__evidence_file__case=case,
+                is_archived=False
+            ).select_related('parsed_event').order_by('-confidence')[:500]
+            
+            for event in scored_events:
+                case_data['scored_events'].append({
+                    'timestamp': event.parsed_event.timestamp,
+                    'event_type': event.parsed_event.event_type,
+                    'user': event.parsed_event.user or 'N/A',
+                    'host': event.parsed_event.host or 'N/A',
+                    'confidence': event.confidence,
+                    'risk_label': event.risk_label,
+                    'inference_text': event.inference_text,
+                    'raw_message': event.parsed_event.raw_message,
+                })
+            
+            # Story patterns
+            for story in case.story_patterns.all():
+                case_data['stories'].append({
+                    'title': story.title,
+                    'narrative': story.narrative_text,
+                    'attack_phase': story.attack_phase,
+                    'avg_confidence': story.avg_confidence,
+                })
+            
+            # Generate nested report (PDF + CSV)
+            latex_content, pdf_bytes, csv_data = latex_generator.generate_nested_latex_report(case_data)
+            
+            # Create ZIP file with both PDF and CSV
+            import tempfile
+            import io
+            
+            zip_buffer = io.BytesIO()
+            with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+                zip_file.writestr(f'report_case_{case.id}.pdf', pdf_bytes)
+                zip_file.writestr(f'report_case_{case.id}_data.csv', csv_data.encode('utf-8'))
+                
+                # Also add metadata
+                metadata = f"""Case Report - {case.name}
+Generated: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}
+Status: {case.status}
+Events Analyzed: {len(case_data['scored_events'])}
+Attack Patterns: {len(case_data['stories'])}
+Evidence Files: {len(case_data['evidence_files'])}
+"""
+                zip_file.writestr('README.txt', metadata)
+            
+            zip_buffer.seek(0)
+            
+            return FileResponse(
+                zip_buffer,
+                as_attachment=True,
+                filename=f"report_case_{case.id}_combined.zip",
+                content_type='application/zip'
+            )
+            
+        except Exception as e:
+            logger.error(f"Error generating combined report: {str(e)}")
+            return Response(
+                {'error': f'Failed to generate report: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 class DashboardViewSet(viewsets.ViewSet):

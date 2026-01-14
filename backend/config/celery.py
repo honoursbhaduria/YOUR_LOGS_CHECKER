@@ -3,6 +3,10 @@ Celery configuration for background task processing
 """
 import os
 from celery import Celery
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
 
