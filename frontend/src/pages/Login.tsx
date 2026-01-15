@@ -1,6 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { apiClient } from '../api/client';
+
+// Declare global Google OAuth types
+declare global {
+  interface Window {
+    google?: any;
+  }
+}
 
 interface LoginProps {
   onLogin: () => void;
@@ -13,6 +20,52 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [loading, setLoading] = useState(false);
   const location = useLocation();
   const successMessage = (location.state as any)?.message;
+
+  // Load Google Sign-In script
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    document.body.appendChild(script);
+
+    script.onload = () => {
+      if (window.google) {
+        window.google.accounts.id.initialize({
+          client_id: process.env.REACT_APP_GOOGLE_CLIENT_ID || '',
+          callback: handleGoogleResponse,
+        });
+        
+        window.google.accounts.id.renderButton(
+          document.getElementById('googleSignInButton'),
+          { 
+            theme: 'filled_black',
+            size: 'large',
+            width: '100%',
+            text: 'continue_with'
+          }
+        );
+      }
+    };
+
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, []);
+
+  const handleGoogleResponse = async (response: any) => {
+    setError('');
+    setLoading(true);
+
+    try {
+      await apiClient.googleLogin(response.credential);
+      onLogin();
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Google login failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -110,6 +163,17 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
               )}
             </button>
           </div>
+
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-zinc-800"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-zinc-900 text-zinc-500">Or continue with</span>
+            </div>
+          </div>
+
+          <div id="googleSignInButton" className="w-full flex justify-center"></div>
 
           <div className="text-center">
             <p className="text-sm text-zinc-500">

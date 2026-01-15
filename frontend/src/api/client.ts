@@ -75,6 +75,14 @@ class ApiClient {
     return response.data;
   }
 
+  async googleLogin(googleToken: string) {
+    const response = await this.client.post('/auth/google/', { token: googleToken });
+    const { access, refresh, user } = response.data;
+    localStorage.setItem('access_token', access);
+    localStorage.setItem('refresh_token', refresh);
+    return { ...response.data, user };
+  }
+
   async register(username: string, email: string, password: string, password2: string) {
     const response = await this.client.post('/auth/register/', { 
       username, 

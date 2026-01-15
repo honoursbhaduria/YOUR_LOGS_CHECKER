@@ -7,13 +7,9 @@ from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
 )
-from .views import (
-    CaseViewSet, EvidenceFileViewSet, ParsedEventViewSet,
-    ScoredEventViewSet, ScoringViewSet, FilterViewSet,
-    StoryPatternViewSet, InvestigationNoteViewSet,
-    ReportViewSet, DashboardViewSet
-)
+from .views import *
 from .auth_views import RegisterView, current_user, update_profile
+from .google_auth import google_login
 
 # Create router and register viewsets
 router = DefaultRouter()
@@ -33,6 +29,7 @@ urlpatterns = [
     path('auth/login/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('auth/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('auth/register/', RegisterView.as_view(), name='register'),
+    path('auth/google/', google_login, name='google_login'),
     path('auth/me/', current_user, name='current_user'),
     path('auth/profile/', update_profile, name='update_profile'),
     
