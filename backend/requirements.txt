@@ -38,6 +38,7 @@ djangorestframework-simplejwt
 django-allauth
 dj-rest-auth
 google-auth
+cryptography
 
 # Testing
 pytest
