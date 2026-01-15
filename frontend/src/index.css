@@ -149,3 +149,35 @@ html {
 .risk-critical {
   @apply bg-red-950 text-red-400 border border-red-900;
 }
+
+/* Register page animations */
+@keyframes grid-flow {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(50px); }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+.animate-shake {
+  animation: shake 0.5s ease-in-out;
+}
+
+.typing-effect {
+  overflow: hidden;
+  border-right: 2px solid rgba(59, 130, 246, 0.5);
+  white-space: nowrap;
+  animation: typing 3.5s steps(30) infinite, blink 0.75s step-end infinite;
+}
+
+@keyframes typing {
+  0%, 100% { width: 0; }
+  50% { width: 100%; }
+}
+
+@keyframes blink {
+  50% { border-color: transparent; }
+}
