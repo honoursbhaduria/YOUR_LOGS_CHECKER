@@ -115,9 +115,9 @@ AUTHENTICATION_BACKENDS = [
     'allauth.account.auth_backends.AuthenticationBackend',
 ]
 
-# Allauth settings
-ACCOUNT_AUTHENTICATION_METHOD = 'username_email'
-ACCOUNT_EMAIL_REQUIRED = False
+# Allauth settings (updated for newer versions)
+ACCOUNT_LOGIN_METHODS = {'email', 'username'}  # replaces ACCOUNT_AUTHENTICATION_METHOD
+ACCOUNT_SIGNUP_FIELDS = ['email', 'username*', 'password1*', 'password2*']  # replaces ACCOUNT_EMAIL_REQUIRED
 ACCOUNT_EMAIL_VERIFICATION = 'none'
 SOCIALACCOUNT_AUTO_SIGNUP = True
 SOCIALACCOUNT_EMAIL_VERIFICATION = 'none'
@@ -165,10 +165,12 @@ SIMPLE_JWT = {
 }
 
 # CORS Settings
-CORS_ALLOWED_ORIGINS = os.getenv(
+# Strip trailing slashes from origins to avoid Django errors
+_cors_origins = os.getenv(
     'CORS_ALLOWED_ORIGINS',
     'http://localhost:3000,http://127.0.0.1:3000'
 ).split(',')
+CORS_ALLOWED_ORIGINS = [origin.rstrip('/') for origin in _cors_origins]
 CORS_ALLOW_CREDENTIALS = True
 
 # Celery Configuration
