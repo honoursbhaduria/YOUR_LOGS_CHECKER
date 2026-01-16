@@ -299,29 +299,33 @@ class EvidenceFileViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def reparse(self, request, pk=None):
         """Trigger re-parsing of evidence file"""
-        evidence = self.get_object()
-        
-        # Clear existing parsed events
-        from .models import ParsedEvent
-        ParsedEvent.objects.filter(evidence_file=evidence).delete()
-        evidence.is_parsed = False
-        evidence.parse_error = ''
-        evidence.save()
-        
-        # Try async first, fallback to sync
         try:
-            parse_evidence_file_task.delay(evidence.id)
-            return Response({'status': 'parsing initiated (async)'})
+            evidence = self.get_object()
+            
+            # Clear existing parsed events
+            from .models import ParsedEvent
+            ParsedEvent.objects.filter(evidence_file=evidence).delete()
+            evidence.is_parsed = False
+            evidence.parse_error = ''
+            evidence.save()
+            
+            # Try async first, fallback to sync
+            try:
+                parse_evidence_file_task.delay(evidence.id)
+                return Response({'status': 'parsing initiated (async)'})
+            except Exception as e:
+                logger.info(f"Celery not available, parsing synchronously: {e}")
+                self._parse_evidence_sync(evidence.id)
+                evidence.refresh_from_db()
+                return Response({
+                    'status': 'parsing completed (sync)',
+                    'is_parsed': evidence.is_parsed,
+                    'event_count': evidence.parsed_events.count(),
+                    'parse_error': evidence.parse_error
+                })
         except Exception as e:
-            logger.info(f"Celery not available, parsing synchronously: {e}")
-            self._parse_evidence_sync(evidence.id)
-            evidence.refresh_from_db()
-            return Response({
-                'status': 'parsing completed (sync)',
-                'is_parsed': evidence.is_parsed,
-                'event_count': evidence.parsed_events.count(),
-                'parse_error': evidence.parse_error
-            })
+            logger.error(f"Reparse error: {str(e)}")
+            return Response({'error': str(e)}, status=500)
 
 
 class ParsedEventViewSet(viewsets.ReadOnlyModelViewSet):
