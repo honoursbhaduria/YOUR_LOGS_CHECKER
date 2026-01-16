@@ -199,48 +199,57 @@ class EvidenceFileViewSet(viewsets.ModelViewSet):
     ordering_fields = ['uploaded_at', 'filename']
     
     def perform_create(self, serializer):
-        file_obj = self.request.FILES['file']
-        case_id = serializer.validated_data.get('case').id
-        
-        # Calculate hash
-        file_hash = calculate_sha256(file_obj)
-        
-        # Check if file already exists in THIS case only
-        existing_file = EvidenceFile.objects.filter(
-            file_hash=file_hash, 
-            case_id=case_id
-        ).first()
-        if existing_file:
-            raise ValidationError({
-                'detail': f'File already exists in this case: {existing_file.filename} (uploaded {existing_file.uploaded_at.strftime("%Y-%m-%d %H:%M")})',
-                'existing_file_id': existing_file.id,
-                'duplicate': True
-            })
-        
-        # Extract filename if not provided
-        filename = serializer.validated_data.get('filename', file_obj.name)
-        
-        # Detect log type
-        # Save with filename
-        evidence = serializer.save(
-            uploaded_by=self.request.user,
-            filename=filename,
-            file_hash=file_hash,
-            file_size=file_obj.size,
-        )
-        
-        # Detect log type
-        log_type = detect_log_type(evidence.file.path, evidence.filename)
-        evidence.log_type = log_type
-        evidence.save()
-        
-        # Trigger async parsing, fallback to sync if Celery not available
         try:
-            parse_evidence_file_task.delay(evidence.id)
+            file_obj = self.request.FILES.get('file')
+            if not file_obj:
+                raise ValidationError({'file': 'No file provided'})
+            
+            case_id = serializer.validated_data.get('case').id
+            
+            # Calculate hash
+            file_hash = calculate_sha256(file_obj)
+            
+            # Check if file already exists in THIS case only
+            existing_file = EvidenceFile.objects.filter(
+                file_hash=file_hash, 
+                case_id=case_id
+            ).first()
+            if existing_file:
+                raise ValidationError({
+                    'detail': f'File already exists in this case: {existing_file.filename} (uploaded {existing_file.uploaded_at.strftime("%Y-%m-%d %H:%M")})',
+                    'existing_file_id': existing_file.id,
+                    'duplicate': True
+                })
+            
+            # Extract filename if not provided
+            filename = serializer.validated_data.get('filename', file_obj.name)
+            
+            # Detect log type
+            # Save with filename
+            evidence = serializer.save(
+                uploaded_by=self.request.user,
+                filename=filename,
+                file_hash=file_hash,
+                file_size=file_obj.size,
+            )
+            
+            # Detect log type
+            log_type = detect_log_type(evidence.file.path, evidence.filename)
+            evidence.log_type = log_type
+            evidence.save()
+            
+            # Trigger async parsing, fallback to sync if Celery not available
+            try:
+                parse_evidence_file_task.delay(evidence.id)
+            except Exception as e:
+                logger.info(f"Celery task failed, running synchronously: {e}")
+                # Fallback to synchronous parsing
+                self._parse_evidence_sync(evidence.id)
+        except ValidationError:
+            raise
         except Exception as e:
-            print(f"Celery task failed, running synchronously: {e}")
-            # Fallback to synchronous parsing
-            self._parse_evidence_sync(evidence.id)
+            logger.error(f"Error uploading evidence: {str(e)}")
+            raise ValidationError({'detail': f'Upload failed: {str(e)}'})
     
     def _parse_evidence_sync(self, evidence_id):
         """Synchronous parsing fallback when Celery is not available"""
