@@ -234,11 +234,48 @@ class EvidenceFileViewSet(viewsets.ModelViewSet):
         evidence.log_type = log_type
         evidence.save()
         
-        # Trigger async parsing (skip if Celery not available)
+        # Trigger async parsing, fallback to sync if Celery not available
         try:
             parse_evidence_file_task.delay(evidence.id)
         except Exception as e:
-            print(f"Celery task failed (expected if Redis not running): {e}")
+            print(f"Celery task failed, running synchronously: {e}")
+            # Fallback to synchronous parsing
+            self._parse_evidence_sync(evidence.id)
+    
+    def _parse_evidence_sync(self, evidence_id):
+        """Synchronous parsing fallback when Celery is not available"""
+        from .models import EvidenceFile, ParsedEvent
+        from .services.parsers.factory import ParserFactory
+        
+        try:
+            evidence = EvidenceFile.objects.get(id=evidence_id)
+            parser = ParserFactory.get_parser(evidence.log_type)
+            
+            if not parser:
+                evidence.parse_error = f"No parser available for log type: {evidence.log_type}"
+                evidence.save()
+                return
+            
+            events = parser.parse(evidence.file.path)
+            
+            for event_data in events:
+                ParsedEvent.objects.create(
+                    evidence_file=evidence,
+                    **event_data
+                )
+            
+            evidence.is_parsed = True
+            evidence.parsed_at = timezone.now()
+            evidence.parse_error = ''
+            evidence.save()
+            
+            logger.info(f"Synchronously parsed {len(events)} events from {evidence.filename}")
+            
+        except Exception as e:
+            logger.error(f"Error parsing evidence file {evidence_id}: {str(e)}")
+            evidence = EvidenceFile.objects.get(id=evidence_id)
+            evidence.parse_error = str(e)
+            evidence.save()
     
     @action(detail=True, methods=['get'])
     def hash(self, request, pk=None):
@@ -254,8 +291,28 @@ class EvidenceFileViewSet(viewsets.ModelViewSet):
     def reparse(self, request, pk=None):
         """Trigger re-parsing of evidence file"""
         evidence = self.get_object()
-        parse_evidence_file_task.delay(evidence.id)
-        return Response({'status': 'parsing initiated'})
+        
+        # Clear existing parsed events
+        from .models import ParsedEvent
+        ParsedEvent.objects.filter(evidence_file=evidence).delete()
+        evidence.is_parsed = False
+        evidence.parse_error = ''
+        evidence.save()
+        
+        # Try async first, fallback to sync
+        try:
+            parse_evidence_file_task.delay(evidence.id)
+            return Response({'status': 'parsing initiated (async)'})
+        except Exception as e:
+            logger.info(f"Celery not available, parsing synchronously: {e}")
+            self._parse_evidence_sync(evidence.id)
+            evidence.refresh_from_db()
+            return Response({
+                'status': 'parsing completed (sync)',
+                'is_parsed': evidence.is_parsed,
+                'event_count': evidence.parsed_events.count(),
+                'parse_error': evidence.parse_error
+            })
 
 
 class ParsedEventViewSet(viewsets.ReadOnlyModelViewSet):
