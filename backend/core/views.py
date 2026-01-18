@@ -881,9 +881,9 @@ class ReportViewSet(viewsets.ModelViewSet):
             case_data = {
                 'case': {
                     'name': case.name,
-                    'description': case.description,
+                    'description': case.description or '',
                     'status': case.status,
-                    'created_by': case.created_by.username,
+                    'created_by': case.created_by.username if case.created_by else 'Unknown',
                     'created_at': case.created_at.strftime('%Y-%m-%d %H:%M:%S'),
                 },
                 'evidence_files': [],
@@ -894,10 +894,10 @@ class ReportViewSet(viewsets.ModelViewSet):
             # Evidence files
             for evidence in case.evidence_files.all():
                 case_data['evidence_files'].append({
-                    'filename': evidence.filename,
-                    'file_hash': evidence.file_hash,
+                    'filename': evidence.filename or 'Unknown',
+                    'file_hash': evidence.file_hash or '',
                     'uploaded_at': evidence.uploaded_at.strftime('%Y-%m-%d %H:%M:%S'),
-                    'uploaded_by': evidence.uploaded_by.username,
+                    'uploaded_by': evidence.uploaded_by.username if evidence.uploaded_by else 'Unknown',
                 })
             
             # Scored events
@@ -908,23 +908,23 @@ class ReportViewSet(viewsets.ModelViewSet):
             
             for event in scored_events:
                 case_data['scored_events'].append({
-                    'timestamp': event.parsed_event.timestamp,
-                    'event_type': event.parsed_event.event_type,
+                    'timestamp': str(event.parsed_event.timestamp) if event.parsed_event.timestamp else '',
+                    'event_type': event.parsed_event.event_type or '',
                     'user': event.parsed_event.user or 'N/A',
                     'host': event.parsed_event.host or 'N/A',
-                    'confidence': event.confidence,
-                    'risk_label': event.risk_label,
-                    'inference_text': event.inference_text,
-                    'raw_message': event.parsed_event.raw_message,
+                    'confidence': float(event.confidence),
+                    'risk_label': event.risk_label or 'UNKNOWN',
+                    'inference_text': event.inference_text or '',
+                    'raw_message': event.parsed_event.raw_message or '',
                 })
             
             # Story patterns
             for story in case.story_patterns.all():
                 case_data['stories'].append({
-                    'title': story.title,
-                    'narrative': story.narrative_text,
-                    'attack_phase': story.attack_phase,
-                    'avg_confidence': story.avg_confidence,
+                    'title': story.title or 'Untitled',
+                    'narrative': story.narrative_text or '',
+                    'attack_phase': story.attack_phase or 'Unknown',
+                    'avg_confidence': float(story.avg_confidence) if story.avg_confidence else 0.0,
                 })
             
             # Generate nested report (PDF + CSV)

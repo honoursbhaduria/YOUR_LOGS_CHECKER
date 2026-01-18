@@ -268,10 +268,10 @@ const AttackStory: React.FC = () => {
       {/* Tab Navigation */}
       <div className="flex space-x-1 mb-6 bg-zinc-900 p-1 rounded-lg border border-zinc-800 w-fit">
         {[
-          { id: 'overview', label: '📊 Overview' },
-          { id: 'timeline', label: '📈 Charts' },
-          { id: 'events', label: '🔍 Events' },
-          { id: 'details', label: '📋 Details' },
+          { id: 'overview', label: 'Overview' },
+          { id: 'timeline', label: 'Charts' },
+          { id: 'events', label: 'Events' },
+          { id: 'details', label: 'Details' },
         ].map(tab => (
           <button
             key={tab.id}
