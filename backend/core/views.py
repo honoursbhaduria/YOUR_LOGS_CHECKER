@@ -328,8 +328,16 @@ class EvidenceFileViewSet(viewsets.ModelViewSet):
         try:
             evidence = self.get_object()
             
-            # Check if file exists on disk
-            file_path = evidence.file.path if evidence.file else None
+            # Check if file exists on disk - handle potential errors
+            try:
+                file_path = evidence.file.path if evidence.file else None
+            except Exception as path_error:
+                return Response({
+                    'error': 'Cannot access file path',
+                    'detail': str(path_error),
+                    'file_url': evidence.file.url if evidence.file else None
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
             if not file_path or not os.path.exists(file_path):
                 return Response({
                     'error': 'File not found on server',
