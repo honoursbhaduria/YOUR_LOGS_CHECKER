@@ -461,8 +461,23 @@ class LaTeXReportGenerator:
             text = text.replace(char, replacement)
         return text
     
+    def _is_pdflatex_available(self) -> bool:
+        """Check if pdflatex is installed and available"""
+        try:
+            result = subprocess.run(
+                ['which', 'pdflatex'],
+                capture_output=True,
+                timeout=5
+            )
+            return result.returncode == 0
+        except Exception:
+            return False
+    
     def _compile_latex_to_pdf(self, latex_content: str) -> bytes:
         """Compile LaTeX to PDF using pdflatex"""
+        if not self._is_pdflatex_available():
+            raise Exception("pdflatex not available. PDF compilation requires LaTeX to be installed on the server. Install with: sudo apt-get install texlive-latex-base texlive-fonts-recommended texlive-latex-extra")
+        
         with tempfile.TemporaryDirectory() as tmpdir:
             # Write LaTeX file
             tex_path = os.path.join(tmpdir, 'report.tex')

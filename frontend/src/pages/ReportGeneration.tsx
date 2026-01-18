@@ -1,9 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import type { Case, Report } from '../types';
 import LaTeXEditor from '../components/LaTeXEditor';
+
+interface ReportCapabilities {
+  pdf_compilation: boolean;
+  latex_preview: boolean;
+  csv_export: boolean;
+  message: string;
+}
 
 const ReportGeneration: React.FC = () => {
   const { caseId } = useParams<{ caseId: string }>();
@@ -16,6 +23,20 @@ const ReportGeneration: React.FC = () => {
   const [latexSource, setLatexSource] = useState('');
   const [loadingLatex, setLoadingLatex] = useState(false);
   const [compilingLatex, setCompilingLatex] = useState(false);
+  const [capabilities, setCapabilities] = useState<ReportCapabilities | null>(null);
+
+  // Check server capabilities on mount
+  useEffect(() => {
+    const checkCapabilities = async () => {
+      try {
+        const response = await apiClient.getReportCapabilities();
+        setCapabilities(response.data);
+      } catch (error) {
+        console.error('Failed to check report capabilities:', error);
+      }
+    };
+    checkCapabilities();
+  }, []);
 
   const { data: caseData } = useQuery<Case>({
     queryKey: ['case', caseId],
@@ -91,7 +112,12 @@ const ReportGeneration: React.FC = () => {
       link.parentNode?.removeChild(link);
       window.URL.revokeObjectURL(url);
       
-      setSuccessMessage('Combined report (PDF + CSV) downloaded successfully!');
+      // Show different message based on PDF availability
+      if (capabilities?.pdf_compilation) {
+        setSuccessMessage('Combined report (PDF + CSV) downloaded successfully!');
+      } else {
+        setSuccessMessage('Combined report (LaTeX source + CSV) downloaded! Compile the .tex file locally to get PDF.');
+      }
       setTimeout(() => setSuccessMessage(''), 5000);
     } catch (error: any) {
       setErrorMessage('Failed to download combined report: ' + (error.message || 'Unknown error'));

@@ -241,12 +241,17 @@ class ApiClient {
     return this.client.post('/report/preview_latex/', { case_id: caseId });
   }
   
-  async compileCustomLatex(latexSource: string, filename: string = 'custom_report.pdf') {
-    // Compile custom LaTeX to PDF
+  async compileCustomLatex(latexSource: string, filename: string = 'custom_report.pdf', fallbackToTex: boolean = false) {
+    // Compile custom LaTeX to PDF (or .tex if PDF not available and fallback enabled)
     return this.client.post('/report/compile_custom_latex/', 
-      { latex_source: latexSource, filename },
+      { latex_source: latexSource, filename, fallback_to_tex: fallbackToTex },
       { responseType: 'blob' }
     );
+  }
+  
+  async getReportCapabilities() {
+    // Check what report capabilities are available on the server
+    return this.client.get('/report/capabilities/');
   }
   
   getReportDownloadUrl(id: number): string {
