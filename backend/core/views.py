@@ -238,7 +238,6 @@ class EvidenceFileViewSet(viewsets.ModelViewSet):
             # Extract filename if not provided
             filename = serializer.validated_data.get('filename', file_obj.name)
             
-            # Detect log type
             # Save with filename
             evidence = serializer.save(
                 uploaded_by=self.request.user,
@@ -259,13 +258,22 @@ class EvidenceFileViewSet(viewsets.ModelViewSet):
             evidence.log_type = log_type
             evidence.save()
             
-            # Always use synchronous parsing for reliability
-            # (Celery may not be available in all environments)
-            self._parse_evidence_sync(evidence.id)
+            # Attempt synchronous parsing - don't fail if parsing fails
+            # Parsing errors are stored in the evidence record
+            try:
+                self._parse_evidence_sync(evidence.id)
+            except Exception as parse_error:
+                logger.error(f"Parsing failed for evidence {evidence.id}: {parse_error}")
+                evidence.parse_error = str(parse_error)
+                evidence.save()
+                # Don't raise - file is uploaded, just parsing failed
+                
         except ValidationError:
             raise
         except Exception as e:
             logger.error(f"Error uploading evidence: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
             raise ValidationError({'detail': f'Upload failed: {str(e)}'})
     
     def _parse_evidence_sync(self, evidence_id):
