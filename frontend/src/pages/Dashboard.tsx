@@ -1,7 +1,6 @@
-import React, { useCallback, useState } from 'react';
+import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
-import { useDropzone } from 'react-dropzone';
 import { apiClient } from '../api/client';
 import type { DashboardSummary, Case } from '../types';
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { apiClient } from '../api/client';
 
@@ -20,6 +20,20 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [loading, setLoading] = useState(false);
   const location = useLocation();
   const successMessage = (location.state as any)?.message;
+
+  const handleGoogleResponse = useCallback(async (response: any) => {
+    setError('');
+    setLoading(true);
+
+    try {
+      await apiClient.googleLogin(response.credential);
+      onLogin();
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Google login failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }, [onLogin]);
 
   // Load Google Sign-In script
   useEffect(() => {
@@ -51,21 +65,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     return () => {
       document.body.removeChild(script);
     };
-  }, []);
-
-  const handleGoogleResponse = async (response: any) => {
-    setError('');
-    setLoading(true);
-
-    try {
-      await apiClient.googleLogin(response.credential);
-      onLogin();
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Google login failed. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [handleGoogleResponse]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

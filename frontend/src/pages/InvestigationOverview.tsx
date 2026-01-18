@@ -30,7 +30,8 @@ const InvestigationOverview: React.FC = () => {
     },
   });
 
-  const { data: summary } = useQuery({
+  // Pre-fetch case summary for later use
+  useQuery({
     queryKey: ['case-summary', caseId],
     queryFn: async () => {
       const response = await apiClient.getCaseSummary(Number(caseId));

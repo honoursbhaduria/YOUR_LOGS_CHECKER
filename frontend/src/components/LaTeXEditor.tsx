@@ -35,7 +35,7 @@ const LaTeXEditor: React.FC<LaTeXEditorProps> = ({
   };
 
   const handleCompile = async () => {
-    const blob = await onCompile(latexSource, true);
+    await onCompile(latexSource, true);
     setIsDirty(false);
   };
 
