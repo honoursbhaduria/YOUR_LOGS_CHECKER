@@ -247,8 +247,15 @@ class EvidenceFileViewSet(viewsets.ModelViewSet):
                 file_size=file_obj.size,
             )
             
-            # Detect log type
-            log_type = detect_log_type(evidence.file.path, evidence.filename)
+            # Detect log type - handle potential file path issues
+            try:
+                file_path = evidence.file.path
+                log_type = detect_log_type(file_path, evidence.filename)
+            except Exception as e:
+                # Fallback to filename-based detection
+                logger.warning(f"Could not get file path for detection: {e}")
+                log_type = 'CSV' if evidence.filename.lower().endswith('.csv') else 'UNKNOWN'
+            
             evidence.log_type = log_type
             evidence.save()
             
@@ -341,7 +348,7 @@ class EvidenceFileViewSet(viewsets.ModelViewSet):
             if not file_path or not os.path.exists(file_path):
                 return Response({
                     'error': 'File not found on server',
-                    'detail': 'The original file is no longer available. On ephemeral storage, files are lost after restart. Please re-upload the file.',
+'detail': 'The original file is no longer available. On ephemeral storage, files are lost after restart. Please re-upload the file.',                                                                                                                                                                                                                                                   +
                     'file_path': file_path
                 }, status=status.HTTP_400_BAD_REQUEST)
             
