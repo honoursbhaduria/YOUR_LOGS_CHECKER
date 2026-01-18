@@ -277,8 +277,15 @@ class EvidenceFileViewSet(viewsets.ModelViewSet):
         try:
             evidence = EvidenceFile.objects.get(id=evidence_id)
             
-            # Check file exists
-            file_path = evidence.file.path if evidence.file else None
+            # Check file exists - handle potential path access errors
+            try:
+                file_path = evidence.file.path if evidence.file else None
+            except Exception as path_err:
+                evidence.parse_error = f"Cannot access file path: {path_err}"
+                evidence.save()
+                logger.error(f"Cannot access file path for evidence {evidence_id}: {path_err}")
+                return
+            
             if not file_path or not os.path.exists(file_path):
                 evidence.parse_error = f"File not found: {file_path}"
                 evidence.save()
