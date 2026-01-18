@@ -37,14 +37,18 @@ from .tasks import (
 class CaseViewSet(viewsets.ModelViewSet):
     """
     ViewSet for Case management
+    Each user can only see their own cases
     """
-    queryset = Case.objects.all()
     serializer_class = CaseSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['status']
     search_fields = ['name', 'description']
     ordering_fields = ['created_at', 'updated_at', 'name']
+    
+    def get_queryset(self):
+        """Return only cases created by the current user"""
+        return Case.objects.filter(created_by=self.request.user)
     
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
@@ -189,8 +193,8 @@ class CaseViewSet(viewsets.ModelViewSet):
 class EvidenceFileViewSet(viewsets.ModelViewSet):
     """
     ViewSet for Evidence file upload and management
+    Users can only see evidence from their own cases
     """
-    queryset = EvidenceFile.objects.all()
     serializer_class = EvidenceFileSerializer
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
@@ -198,13 +202,23 @@ class EvidenceFileViewSet(viewsets.ModelViewSet):
     filterset_fields = ['case', 'log_type', 'is_parsed']
     ordering_fields = ['uploaded_at', 'filename']
     
+    def get_queryset(self):
+        """Return only evidence files from cases owned by the current user"""
+        return EvidenceFile.objects.filter(case__created_by=self.request.user)
+    
     def perform_create(self, serializer):
         try:
             file_obj = self.request.FILES.get('file')
             if not file_obj:
                 raise ValidationError({'file': 'No file provided'})
             
-            case_id = serializer.validated_data.get('case').id
+            case = serializer.validated_data.get('case')
+            
+            # Verify user owns this case
+            if case.created_by != self.request.user:
+                raise ValidationError({'case': 'You do not have permission to add evidence to this case'})
+            
+            case_id = case.id
             
             # Calculate hash
             file_hash = calculate_sha256(file_obj)
@@ -331,27 +345,37 @@ class EvidenceFileViewSet(viewsets.ModelViewSet):
 class ParsedEventViewSet(viewsets.ReadOnlyModelViewSet):
     """
     ViewSet for parsed events (read-only)
+    Users can only see events from their own cases
     """
-    queryset = ParsedEvent.objects.all()
     serializer_class = ParsedEventSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['evidence_file', 'event_type', 'user', 'host']
     search_fields = ['event_type', 'raw_message', 'user', 'host']
     ordering_fields = ['timestamp', 'parsed_at']
+    
+    def get_queryset(self):
+        """Return only events from cases owned by the current user"""
+        return ParsedEvent.objects.filter(evidence_file__case__created_by=self.request.user)
 
 
 class ScoredEventViewSet(viewsets.ModelViewSet):
     """
     ViewSet for scored events
+    Users can only see scored events from their own cases
     """
-    queryset = ScoredEvent.objects.select_related('parsed_event').all()
     serializer_class = ScoredEventSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['risk_label', 'is_archived', 'is_false_positive']
     search_fields = ['parsed_event__event_type', 'inference_text']
     ordering_fields = ['confidence', 'parsed_event__timestamp', 'scored_at']
+    
+    def get_queryset(self):
+        """Return only scored events from cases owned by the current user"""
+        return ScoredEvent.objects.select_related('parsed_event').filter(
+            parsed_event__evidence_file__case__created_by=self.request.user
+        )
     
     @action(detail=True, methods=['post'])
     def archive(self, request, pk=None):
@@ -507,13 +531,17 @@ class FilterViewSet(viewsets.ViewSet):
 class StoryPatternViewSet(viewsets.ModelViewSet):
     """
     ViewSet for story pattern synthesis
+    Users can only see stories from their own cases
     """
-    queryset = StoryPattern.objects.all()
     serializer_class = StoryPatternSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_fields = ['case', 'attack_phase']
     ordering_fields = ['avg_confidence', 'generated_at', 'time_span_start']
+    
+    def get_queryset(self):
+        """Return only stories from cases owned by the current user"""
+        return StoryPattern.objects.filter(case__created_by=self.request.user)
     
     @action(detail=False, methods=['post'])
     def generate(self, request):
@@ -546,13 +574,17 @@ class StoryPatternViewSet(viewsets.ModelViewSet):
 class InvestigationNoteViewSet(viewsets.ModelViewSet):
     """
     ViewSet for investigation notes
+    Users can only see notes from their own cases
     """
-    queryset = InvestigationNote.objects.all()
     serializer_class = InvestigationNoteSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_fields = ['case', 'scored_event']
     ordering_fields = ['created_at', 'updated_at']
+    
+    def get_queryset(self):
+        """Return only notes from cases owned by the current user"""
+        return InvestigationNote.objects.filter(case__created_by=self.request.user)
     
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
@@ -561,13 +593,17 @@ class InvestigationNoteViewSet(viewsets.ModelViewSet):
 class ReportViewSet(viewsets.ModelViewSet):
     """
     ViewSet for report generation and export
+    Users can only see reports from their own cases
     """
-    queryset = Report.objects.all()
     serializer_class = ReportSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_fields = ['case', 'format']
     ordering_fields = ['generated_at', 'version']
+    
+    def get_queryset(self):
+        """Return only reports from cases owned by the current user"""
+        return Report.objects.filter(case__created_by=self.request.user)
     
     @action(detail=False, methods=['post'])
     def generate(self, request):
@@ -882,32 +918,50 @@ Evidence Files: {len(case_data['evidence_files'])}
 class DashboardViewSet(viewsets.ViewSet):
     """
     ViewSet for dashboard analytics
+    Users only see their own data
     """
     permission_classes = [IsAuthenticated]
     
     @action(detail=False, methods=['get'])
     def summary(self, request):
-        """Get dashboard summary statistics"""
-        # Aggregate statistics
-        total_cases = Case.objects.count()
-        total_evidence = EvidenceFile.objects.count()
-        total_events = ScoredEvent.objects.count()
-        high_risk = ScoredEvent.objects.filter(risk_label='HIGH', is_archived=False).count()
-        critical = ScoredEvent.objects.filter(risk_label='CRITICAL', is_archived=False).count()
+        """Get dashboard summary statistics for the current user"""
+        user = request.user
         
-        # Recent cases
-        recent_cases = Case.objects.order_by('-created_at')[:5]
+        # Aggregate statistics for current user only
+        total_cases = Case.objects.filter(created_by=user).count()
+        total_evidence = EvidenceFile.objects.filter(case__created_by=user).count()
+        total_events = ScoredEvent.objects.filter(parsed_event__evidence_file__case__created_by=user).count()
+        high_risk = ScoredEvent.objects.filter(
+            parsed_event__evidence_file__case__created_by=user,
+            risk_label='HIGH', 
+            is_archived=False
+        ).count()
+        critical = ScoredEvent.objects.filter(
+            parsed_event__evidence_file__case__created_by=user,
+            risk_label='CRITICAL', 
+            is_archived=False
+        ).count()
         
-        # Risk distribution
-        risk_dist = ScoredEvent.objects.filter(is_archived=False).values('risk_label').annotate(count=Count('id'))
+        # Recent cases for current user
+        recent_cases = Case.objects.filter(created_by=user).order_by('-created_at')[:5]
+        
+        # Risk distribution for current user
+        risk_dist = ScoredEvent.objects.filter(
+            parsed_event__evidence_file__case__created_by=user,
+            is_archived=False
+        ).values('risk_label').annotate(count=Count('id'))
         risk_distribution = {item['risk_label']: item['count'] for item in risk_dist}
         
-        # Confidence distribution (bins)
+        # Confidence distribution (bins) for current user
+        user_events = ScoredEvent.objects.filter(
+            parsed_event__evidence_file__case__created_by=user,
+            is_archived=False
+        )
         confidence_bins = {
-            '0.0-0.3': ScoredEvent.objects.filter(confidence__lt=0.3, is_archived=False).count(),
-            '0.3-0.6': ScoredEvent.objects.filter(confidence__gte=0.3, confidence__lt=0.6, is_archived=False).count(),
-            '0.6-0.8': ScoredEvent.objects.filter(confidence__gte=0.6, confidence__lt=0.8, is_archived=False).count(),
-            '0.8-1.0': ScoredEvent.objects.filter(confidence__gte=0.8, is_archived=False).count(),
+            '0.0-0.3': user_events.filter(confidence__lt=0.3).count(),
+            '0.3-0.6': user_events.filter(confidence__gte=0.3, confidence__lt=0.6).count(),
+            '0.6-0.8': user_events.filter(confidence__gte=0.6, confidence__lt=0.8).count(),
+            '0.8-1.0': user_events.filter(confidence__gte=0.8).count(),
         }
         
         summary_data = {
@@ -931,6 +985,11 @@ class DashboardViewSet(viewsets.ViewSet):
         
         if not case_id:
             return Response({'error': 'case_id required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Verify user owns this case
+        case = Case.objects.filter(id=case_id, created_by=request.user).first()
+        if not case:
+            return Response({'error': 'Case not found or access denied'}, status=status.HTTP_404_NOT_FOUND)
         
         # Get events ordered by time
         events = ScoredEvent.objects.filter(
@@ -956,6 +1015,11 @@ class DashboardViewSet(viewsets.ViewSet):
         
         if not case_id:
             return Response({'error': 'case_id required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Verify user owns this case
+        case = Case.objects.filter(id=case_id, created_by=request.user).first()
+        if not case:
+            return Response({'error': 'Case not found or access denied'}, status=status.HTTP_404_NOT_FOUND)
         
         events = ScoredEvent.objects.filter(
             parsed_event__evidence_file__case_id=case_id,
