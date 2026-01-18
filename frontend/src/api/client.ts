@@ -149,6 +149,15 @@ class ApiClient {
     return this.client.get(`/evidence/${id}/hash/`);
   }
 
+  // Parsed events endpoints
+  async getParsedEvents(params?: { case?: number; evidence_file?: number; search?: string; limit?: number }) {
+    return this.client.get('/parsed-events/', { params });
+  }
+
+  async getParsedEvent(id: number) {
+    return this.client.get(`/parsed-events/${id}/`);
+  }
+
   // Scoring endpoints
   async runScoring(caseId: number) {
     return this.client.post('/scoring/run/', { case_id: caseId });
