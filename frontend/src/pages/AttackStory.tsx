@@ -1,6 +1,12 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, Legend,
+  AreaChart, Area,
+  RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar
+} from 'recharts';
 import { apiClient } from '../api/client';
 import type { Case, StoryPattern, ParsedEvent } from '../types';
 
@@ -63,6 +69,7 @@ const getDestination = (rawMessage: string): string => {
 
 const AttackStory: React.FC = () => {
   const { caseId } = useParams<{ caseId: string }>();
+  const [activeTab, setActiveTab] = useState<'overview' | 'timeline' | 'events' | 'details'>('overview');
 
   const { data: caseData } = useQuery<Case>({
     queryKey: ['case', caseId],
@@ -152,6 +159,59 @@ const AttackStory: React.FC = () => {
     };
   }, [parsedEvents]);
 
+  // Prepare chart data
+  const chartData = useMemo(() => {
+    // Severity distribution for pie chart
+    const severityData = [
+      { name: 'Critical', value: analysis.summary.critical, color: '#ef4444' },
+      { name: 'High', value: analysis.summary.high, color: '#f97316' },
+      { name: 'Medium', value: analysis.summary.medium, color: '#eab308' },
+      { name: 'Low', value: analysis.summary.low, color: '#6366f1' },
+    ].filter(d => d.value > 0);
+
+    // Attack stages for bar chart
+    const stageData = ATTACK_STAGES.map(stage => ({
+      name: stage.name.split(' ')[0], // Short name
+      fullName: stage.name,
+      events: (analysis.eventsByStage[stage.id] || []).length,
+      critical: (analysis.eventsByStage[stage.id] || []).filter(e => parseSeverity(e.raw_message || '') === 'critical').length,
+      high: (analysis.eventsByStage[stage.id] || []).filter(e => parseSeverity(e.raw_message || '') === 'high').length,
+    }));
+
+    // Timeline data - group events by hour
+    const timelineMap: Record<string, { time: string, events: number, critical: number }> = {};
+    (parsedEvents || []).forEach(event => {
+      if (event.timestamp) {
+        const hour = new Date(event.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+        if (!timelineMap[hour]) timelineMap[hour] = { time: hour, events: 0, critical: 0 };
+        timelineMap[hour].events++;
+        if (parseSeverity(event.raw_message || '') === 'critical') {
+          timelineMap[hour].critical++;
+        }
+      }
+    });
+    const timelineData = Object.values(timelineMap).slice(0, 24);
+
+    // Radar data for attack coverage
+    const radarData = ATTACK_STAGES.slice(0, 8).map(stage => ({
+      stage: stage.name.split(' ')[0],
+      detected: Math.min(100, (analysis.eventsByStage[stage.id] || []).length * 10),
+    }));
+
+    // Top event types
+    const eventTypeCounts: Record<string, number> = {};
+    (parsedEvents || []).forEach(event => {
+      const type = event.event_type || 'Unknown';
+      eventTypeCounts[type] = (eventTypeCounts[type] || 0) + 1;
+    });
+    const topEventTypes = Object.entries(eventTypeCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8)
+      .map(([type, count]) => ({ type: type.substring(0, 20), count }));
+
+    return { severityData, stageData, timelineData, radarData, topEventTypes };
+  }, [analysis, parsedEvents]);
+
   // Group stories by stage (for legacy ML-scored support)
   const storiesByStage = stories?.reduce((acc, story) => {
     const stage = story.attack_phase || 'unknown';
@@ -171,10 +231,12 @@ const AttackStory: React.FC = () => {
     return <span className="px-2 py-1 bg-indigo-950 text-indigo-400 border border-indigo-900 rounded-lg text-xs font-medium">LOW</span>;
   };
 
+  const CHART_COLORS = ['#ef4444', '#f97316', '#eab308', '#6366f1', '#22c55e', '#06b6d4', '#8b5cf6', '#ec4899'];
+
   return (
     <div className="px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
-      <div className="mb-8">
+      <div className="mb-6">
         <div className="flex items-center space-x-2 text-sm text-zinc-500 mb-3">
           <Link to="/" className="hover:text-zinc-100 transition-colors">Dashboard</Link>
           <span>→</span>
@@ -186,9 +248,9 @@ const AttackStory: React.FC = () => {
         </div>
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold text-zinc-100 mb-2">Attack Story Timeline</h1>
+            <h1 className="text-2xl font-semibold text-zinc-100 mb-2">Security Analysis Dashboard</h1>
             <p className="text-zinc-500 text-sm">
-              Security event analysis with critical threat detection
+              Comprehensive threat analysis with visualizations
             </p>
           </div>
           <Link to={`/cases/${caseId}/report`} className="btn-primary">Generate Report</Link>
@@ -203,8 +265,30 @@ const AttackStory: React.FC = () => {
         </div>
       )}
 
-      {/* Executive Summary */}
-      <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6 mb-8">
+      {/* Tab Navigation */}
+      <div className="flex space-x-1 mb-6 bg-zinc-900 p-1 rounded-lg border border-zinc-800 w-fit">
+        {[
+          { id: 'overview', label: '📊 Overview' },
+          { id: 'timeline', label: '📈 Charts' },
+          { id: 'events', label: '🔍 Events' },
+          { id: 'details', label: '📋 Details' },
+        ].map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id as typeof activeTab)}
+            className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+              activeTab === tab.id
+                ? 'bg-indigo-600 text-white'
+                : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Executive Summary - Always visible */}
+      <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6 mb-6">
         <h2 className="text-base font-medium text-zinc-100 mb-4">Executive Summary</h2>
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
           <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-4 text-center">
@@ -246,179 +330,323 @@ const AttackStory: React.FC = () => {
         )}
       </div>
 
-      {/* Critical Events Section */}
-      {analysis.criticalEvents.length > 0 && (
-        <div className="bg-zinc-900 border border-red-900/50 rounded-lg p-6 mb-8">
-          <h2 className="text-base font-medium text-red-400 mb-4 flex items-center">
-            <span className="w-2 h-2 bg-red-500 rounded-full mr-2 animate-pulse"></span>
-            Critical Security Events ({analysis.criticalEvents.length})
-          </h2>
-          <div className="space-y-3 max-h-96 overflow-y-auto">
-            {analysis.criticalEvents.map((event, idx) => (
-              <div key={event.id || idx} className="bg-zinc-950 border border-red-900/30 rounded-lg p-4">
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex items-center space-x-2">
-                    {getSeverityBadge('critical')}
-                    <span className="text-xs text-zinc-500">Event ID: {event.event_type}</span>
-                  </div>
-                  <span className="text-xs text-zinc-500">
-                    {event.timestamp ? new Date(event.timestamp).toLocaleString() : 'N/A'}
-                  </span>
-                </div>
-                <p className="text-sm text-zinc-300 mb-2">
-                  {getSeverityDescription(event.raw_message) || event.event_type || 'Security event detected'}
-                </p>
-                <div className="flex flex-wrap items-center gap-4 text-xs text-zinc-500">
-                  <span>User: <span className="text-zinc-400">{event.user || 'N/A'}</span></span>
-                  <span>Source IP: <span className="text-red-400 font-mono">{getSourceIP(event.raw_message)}</span></span>
-                  <span>Target: <span className="text-zinc-400">{getDestination(event.raw_message)}</span></span>
-                  <span>Host: <span className="text-zinc-400">{event.host || 'N/A'}</span></span>
-                </div>
-              </div>
-            ))}
+      {/* OVERVIEW TAB - Charts Grid */}
+      {activeTab === 'overview' && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          {/* Severity Distribution Pie Chart */}
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6">
+            <h3 className="text-base font-medium text-zinc-100 mb-4">Severity Distribution</h3>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={chartData.severityData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={90}
+                    paddingAngle={5}
+                    dataKey="value"
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  >
+                    {chartData.severityData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#18181b', border: '1px solid #3f3f46', borderRadius: '8px' }}
+                    labelStyle={{ color: '#fafafa' }}
+                  />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Attack Stages Bar Chart */}
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6">
+            <h3 className="text-base font-medium text-zinc-100 mb-4">Events by Attack Stage</h3>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData.stageData} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" stroke="#3f3f46" />
+                  <XAxis type="number" stroke="#71717a" />
+                  <YAxis dataKey="name" type="category" stroke="#71717a" width={80} tick={{ fontSize: 11 }} />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#18181b', border: '1px solid #3f3f46', borderRadius: '8px' }}
+                    labelStyle={{ color: '#fafafa' }}
+                    formatter={(value: number, name: string) => [value, name === 'events' ? 'Total' : name]}
+                  />
+                  <Bar dataKey="critical" stackId="a" fill="#ef4444" name="Critical" />
+                  <Bar dataKey="high" stackId="a" fill="#f97316" name="High" />
+                  <Bar dataKey="events" fill="#6366f1" name="Total" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Top Event Types */}
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6">
+            <h3 className="text-base font-medium text-zinc-100 mb-4">Top Event Types</h3>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData.topEventTypes}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#3f3f46" />
+                  <XAxis dataKey="type" stroke="#71717a" tick={{ fontSize: 10 }} angle={-45} textAnchor="end" height={60} />
+                  <YAxis stroke="#71717a" />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#18181b', border: '1px solid #3f3f46', borderRadius: '8px' }}
+                    labelStyle={{ color: '#fafafa' }}
+                  />
+                  <Bar dataKey="count" fill="#8b5cf6">
+                    {chartData.topEventTypes.map((_, index) => (
+                      <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Attack Coverage Radar */}
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6">
+            <h3 className="text-base font-medium text-zinc-100 mb-4">Attack Coverage Analysis</h3>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <RadarChart data={chartData.radarData}>
+                  <PolarGrid stroke="#3f3f46" />
+                  <PolarAngleAxis dataKey="stage" stroke="#71717a" tick={{ fontSize: 10 }} />
+                  <PolarRadiusAxis stroke="#71717a" />
+                  <Radar name="Detection Coverage" dataKey="detected" stroke="#6366f1" fill="#6366f1" fillOpacity={0.5} />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#18181b', border: '1px solid #3f3f46', borderRadius: '8px' }}
+                  />
+                </RadarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
         </div>
       )}
 
-      {/* High Priority Events */}
-      {analysis.highEvents.length > 0 && (
-        <div className="bg-zinc-900 border border-orange-900/30 rounded-lg p-6 mb-8">
-          <h2 className="text-base font-medium text-orange-400 mb-4">
-            High Priority Events ({analysis.highEvents.length})
-          </h2>
-          <div className="space-y-2 max-h-64 overflow-y-auto">
-            {analysis.highEvents.slice(0, 15).map((event, idx) => (
-              <div key={event.id || idx} className="bg-zinc-950 border border-orange-900/20 rounded-lg p-3 flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  {getSeverityBadge('high')}
-                  <span className="text-sm text-zinc-300">
-                    {getSeverityDescription(event.raw_message) || event.event_type}
-                  </span>
-                </div>
-                <div className="flex items-center space-x-4 text-xs text-zinc-500">
-                  <span>{event.user || 'N/A'}</span>
-                  <span className="text-orange-400 font-mono">{getSourceIP(event.raw_message)}</span>
-                  <span>{event.timestamp ? new Date(event.timestamp).toLocaleTimeString() : ''}</span>
-                </div>
-              </div>
-            ))}
-            {analysis.highEvents.length > 15 && (
-              <p className="text-xs text-zinc-500 text-center py-2">
-                +{analysis.highEvents.length - 15} more high priority events...
-              </p>
-            )}
+      {/* TIMELINE TAB - Timeline Charts */}
+      {activeTab === 'timeline' && (
+        <div className="space-y-6 mb-8">
+          {/* Event Timeline */}
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6">
+            <h3 className="text-base font-medium text-zinc-100 mb-4">Event Timeline</h3>
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartData.timelineData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#3f3f46" />
+                  <XAxis dataKey="time" stroke="#71717a" />
+                  <YAxis stroke="#71717a" />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#18181b', border: '1px solid #3f3f46', borderRadius: '8px' }}
+                    labelStyle={{ color: '#fafafa' }}
+                  />
+                  <Area type="monotone" dataKey="events" stroke="#6366f1" fill="#6366f1" fillOpacity={0.3} name="All Events" />
+                  <Area type="monotone" dataKey="critical" stroke="#ef4444" fill="#ef4444" fillOpacity={0.5} name="Critical" />
+                  <Legend />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
           </div>
-        </div>
-      )}
 
-      {/* Attack Progression Timeline */}
-      <div className="mb-12">
-        <h2 className="text-base font-medium text-zinc-100 mb-6">Attack Progression</h2>
-        <div className="relative overflow-x-auto pb-8">
-          <div className="flex space-x-6 min-w-max px-4">
-            {ATTACK_STAGES.map((stage, index) => {
-              const stageEvents = analysis.eventsByStage[stage.id] || [];
-              const stageStories = storiesByStage?.[stage.id] || [];
-              const hasActivity = stageEvents.length > 0 || stageStories.length > 0;
-              const eventCount = stageEvents.length + stageStories.length;
-              
-              // Check if stage has critical events
-              const hasCritical = stageEvents.some(e => parseSeverity(e.raw_message || '') === 'critical');
+          {/* Attack Progression Timeline - Enhanced */}
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6">
+            <h3 className="text-base font-medium text-zinc-100 mb-6">Attack Progression</h3>
+            <div className="relative overflow-x-auto pb-4">
+              <div className="flex space-x-4 min-w-max px-2">
+                {ATTACK_STAGES.map((stage, index) => {
+                  const stageEvents = analysis.eventsByStage[stage.id] || [];
+                  const stageStories = storiesByStage?.[stage.id] || [];
+                  const hasActivity = stageEvents.length > 0 || stageStories.length > 0;
+                  const eventCount = stageEvents.length + stageStories.length;
+                  const hasCritical = stageEvents.some(e => parseSeverity(e.raw_message || '') === 'critical');
+                  const percentage = analysis.summary.total > 0 ? Math.round((eventCount / analysis.summary.total) * 100) : 0;
 
-              return (
-                <div key={stage.id} className="flex flex-col items-center">
-                  <div className="relative flex flex-col items-center">
-                    {index > 0 && (
-                      <div className={`absolute top-6 right-full w-6 h-px ${
-                        hasActivity ? (hasCritical ? 'bg-red-600' : 'bg-zinc-600') : 'bg-zinc-800'
-                      }`} />
-                    )}
-                    
-                    <div className={`w-12 h-12 rounded-full flex items-center justify-center border-2 ${
-                      hasActivity
-                        ? (hasCritical ? 'bg-red-950 border-red-600' : 'bg-zinc-800 border-zinc-600')
-                        : 'bg-zinc-900 border-zinc-800'
-                    }`}>
-                      <div className={`w-3 h-3 rounded-full ${
-                        hasActivity ? (hasCritical ? 'bg-red-500 animate-pulse' : 'bg-zinc-400') : 'bg-zinc-700'
-                      }`} />
-                    </div>
-                    
-                    <div className="mt-3 text-center">
-                      <p className={`text-xs font-medium ${
-                        hasActivity ? (hasCritical ? 'text-red-400' : 'text-zinc-300') : 'text-zinc-600'
-                      }`}>
-                        {stage.name}
-                      </p>
-                      {hasActivity && (
-                        <p className={`text-xs mt-1 ${hasCritical ? 'text-red-400/70' : 'text-zinc-600'}`}>
-                          {eventCount} event{eventCount !== 1 ? 's' : ''}
+                  return (
+                    <div key={stage.id} className="flex flex-col items-center min-w-[140px]">
+                      <div className="relative flex flex-col items-center">
+                        {index > 0 && (
+                          <div className={`absolute top-5 right-full w-4 h-0.5 ${
+                            hasActivity ? (hasCritical ? 'bg-red-600' : 'bg-indigo-600') : 'bg-zinc-700'
+                          }`} />
+                        )}
+                        
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${
+                          hasActivity
+                            ? (hasCritical ? 'bg-red-600 text-white' : 'bg-indigo-600 text-white')
+                            : 'bg-zinc-800 text-zinc-500'
+                        }`}>
+                          {eventCount || '-'}
+                        </div>
+                        
+                        <p className={`text-xs font-medium mt-2 text-center ${
+                          hasActivity ? (hasCritical ? 'text-red-400' : 'text-zinc-200') : 'text-zinc-600'
+                        }`}>
+                          {stage.name}
                         </p>
-                      )}
+                        
+                        {hasActivity && (
+                          <div className="mt-2 w-full bg-zinc-800 rounded-full h-1.5">
+                            <div 
+                              className={`h-1.5 rounded-full ${hasCritical ? 'bg-red-500' : 'bg-indigo-500'}`}
+                              style={{ width: `${Math.min(100, percentage * 2)}%` }}
+                            />
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-
-                  <div className="mt-6 w-72">
-                    {hasActivity ? (
-                      <div className={`bg-zinc-900 border rounded-lg p-4 ${
-                        hasCritical ? 'border-red-900/50' : 'border-zinc-800'
-                      }`}>
-                        <div className="flex items-center justify-between mb-2">
-                          {getSeverityBadge(hasCritical ? 'critical' : 'medium')}
-                          <span className="text-xs text-zinc-500">{eventCount} events</span>
-                        </div>
-                        <div className="space-y-2 max-h-32 overflow-y-auto">
-                          {stageEvents.slice(0, 3).map((event, idx) => (
-                            <p key={idx} className="text-xs text-zinc-400 truncate">
-                              • {getSeverityDescription(event.raw_message) || event.event_type}
-                            </p>
-                          ))}
-                          {stageEvents.length > 3 && (
-                            <p className="text-xs text-zinc-500">
-                              +{stageEvents.length - 3} more events...
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 text-center">
-                        <p className="text-sm text-zinc-600">No activity detected</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      {/* Legacy Story Patterns (if ML scoring was run) */}
-      {stories && stories.length > 0 && (
-        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6 mb-8">
-          <h2 className="text-base font-medium text-zinc-100 mb-4">AI-Generated Findings</h2>
-          <div className="space-y-4">
-            {stories.map((story, index) => (
-              <div key={story.id} className="bg-zinc-950 border border-zinc-800 rounded-lg p-5">
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <h3 className="text-base font-medium text-zinc-100">
-                      Finding #{index + 1}: {ATTACK_STAGES.find((s) => s.id === story.attack_phase)?.name || story.attack_phase}
-                    </h3>
-                    <p className="text-sm text-zinc-500 mt-1">{story.event_count} related events</p>
-                  </div>
-                  {getSeverityBadge('medium')}
-                </div>
-                <p className="text-zinc-400 text-sm mb-4 leading-relaxed">{story.narrative_text}</p>
-                <div className="flex items-center justify-between text-xs text-zinc-600">
-                  <span>{story.time_span_start && `Started: ${new Date(story.time_span_start).toLocaleString()}`}</span>
-                  <span>Confidence: {Math.round((story.avg_confidence || 0) * 100)}%</span>
-                </div>
+                  );
+                })}
               </div>
-            ))}
+            </div>
           </div>
         </div>
       )}
+
+      {/* EVENTS TAB - Critical and High Events */}
+      {activeTab === 'events' && (
+        <>
+          {/* Critical Events Section */}
+          {analysis.criticalEvents.length > 0 && (
+            <div className="bg-zinc-900 border border-red-900/50 rounded-lg p-6 mb-6">
+              <h2 className="text-base font-medium text-red-400 mb-4 flex items-center">
+                <span className="w-2 h-2 bg-red-500 rounded-full mr-2 animate-pulse"></span>
+                Critical Security Events ({analysis.criticalEvents.length})
+              </h2>
+              <div className="space-y-3 max-h-96 overflow-y-auto">
+                {analysis.criticalEvents.map((event, idx) => (
+                  <div key={event.id || idx} className="bg-zinc-950 border border-red-900/30 rounded-lg p-4">
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex items-center space-x-2">
+                        {getSeverityBadge('critical')}
+                        <span className="text-xs text-zinc-500">Event ID: {event.event_type}</span>
+                      </div>
+                      <span className="text-xs text-zinc-500">
+                        {event.timestamp ? new Date(event.timestamp).toLocaleString() : 'N/A'}
+                      </span>
+                    </div>
+                    <p className="text-sm text-zinc-300 mb-2">
+                      {getSeverityDescription(event.raw_message) || event.event_type || 'Security event detected'}
+                    </p>
+                    <div className="flex flex-wrap items-center gap-4 text-xs text-zinc-500">
+                      <span>User: <span className="text-zinc-400">{event.user || 'N/A'}</span></span>
+                      <span>Source IP: <span className="text-red-400 font-mono">{getSourceIP(event.raw_message)}</span></span>
+                      <span>Target: <span className="text-zinc-400">{getDestination(event.raw_message)}</span></span>
+                      <span>Host: <span className="text-zinc-400">{event.host || 'N/A'}</span></span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* High Priority Events */}
+          {analysis.highEvents.length > 0 && (
+            <div className="bg-zinc-900 border border-orange-900/30 rounded-lg p-6 mb-6">
+              <h2 className="text-base font-medium text-orange-400 mb-4">
+                High Priority Events ({analysis.highEvents.length})
+              </h2>
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {analysis.highEvents.map((event, idx) => (
+                  <div key={event.id || idx} className="bg-zinc-950 border border-orange-900/20 rounded-lg p-3 flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      {getSeverityBadge('high')}
+                      <span className="text-sm text-zinc-300">
+                        {getSeverityDescription(event.raw_message) || event.event_type}
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-4 text-xs text-zinc-500">
+                      <span>{event.user || 'N/A'}</span>
+                      <span className="text-orange-400 font-mono">{getSourceIP(event.raw_message)}</span>
+                      <span>{event.timestamp ? new Date(event.timestamp).toLocaleTimeString() : ''}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {analysis.criticalEvents.length === 0 && analysis.highEvents.length === 0 && (
+            <div className="text-center py-12 bg-zinc-900 border border-zinc-800 rounded-lg">
+              <p className="text-zinc-400">No critical or high priority events detected</p>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* DETAILS TAB - All Event Details and AI Findings */}
+      {activeTab === 'details' && (
+        <>
+          {/* All Events Table */}
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6 mb-6">
+            <h3 className="text-base font-medium text-zinc-100 mb-4">All Events ({analysis.summary.total})</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-zinc-800">
+                    <th className="text-left py-3 px-2 text-zinc-400 font-medium">Severity</th>
+                    <th className="text-left py-3 px-2 text-zinc-400 font-medium">Event Type</th>
+                    <th className="text-left py-3 px-2 text-zinc-400 font-medium">Description</th>
+                    <th className="text-left py-3 px-2 text-zinc-400 font-medium">User</th>
+                    <th className="text-left py-3 px-2 text-zinc-400 font-medium">Source IP</th>
+                    <th className="text-left py-3 px-2 text-zinc-400 font-medium">Time</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(parsedEvents || []).slice(0, 50).map((event, idx) => (
+                    <tr key={event.id || idx} className="border-b border-zinc-800/50 hover:bg-zinc-800/30">
+                      <td className="py-2 px-2">{getSeverityBadge(parseSeverity(event.raw_message || ''))}</td>
+                      <td className="py-2 px-2 text-zinc-300 font-mono text-xs">{event.event_type}</td>
+                      <td className="py-2 px-2 text-zinc-400 max-w-xs truncate">{getSeverityDescription(event.raw_message) || '-'}</td>
+                      <td className="py-2 px-2 text-zinc-400">{event.user || '-'}</td>
+                      <td className="py-2 px-2 text-zinc-400 font-mono">{getSourceIP(event.raw_message)}</td>
+                      <td className="py-2 px-2 text-zinc-500 text-xs">{event.timestamp ? new Date(event.timestamp).toLocaleString() : '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {(parsedEvents?.length || 0) > 50 && (
+                <p className="text-center text-zinc-500 text-sm py-4">
+                  Showing 50 of {parsedEvents?.length} events
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* AI-Generated Findings */}
+          {stories && stories.length > 0 && (
+            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6 mb-6">
+              <h2 className="text-base font-medium text-zinc-100 mb-4">🤖 AI-Generated Findings</h2>
+              <div className="space-y-4">
+                {stories.map((story, index) => (
+                  <div key={story.id} className="bg-zinc-950 border border-zinc-800 rounded-lg p-5">
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <h3 className="text-base font-medium text-zinc-100">
+                          Finding #{index + 1}: {ATTACK_STAGES.find((s) => s.id === story.attack_phase)?.name || story.attack_phase}
+                        </h3>
+                        <p className="text-sm text-zinc-500 mt-1">{story.event_count} related events</p>
+                      </div>
+                      {getSeverityBadge('medium')}
+                    </div>
+                    <p className="text-zinc-400 text-sm mb-4 leading-relaxed">{story.narrative_text}</p>
+                    <div className="flex items-center justify-between text-xs text-zinc-600">
+                      <span>{story.time_span_start && `Started: ${new Date(story.time_span_start).toLocaleString()}`}</span>
+                      <span>Confidence: {Math.round((story.avg_confidence || 0) * 100)}%</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Legacy: Critical Events Section - only show if not on events tab */}
+      {activeTab !== 'events' && activeTab !== 'overview' && activeTab !== 'timeline' && activeTab !== 'details' && analysis.criticalEvents.length > 0 && null}
 
       {/* No Events Message */}
       {!eventsLoading && (!parsedEvents || parsedEvents.length === 0) && (!stories || stories.length === 0) && (
