@@ -355,7 +355,7 @@ class EvidenceFileViewSet(viewsets.ModelViewSet):
             if not file_path or not os.path.exists(file_path):
                 return Response({
                     'error': 'File not found on server',
-'detail': 'The original file is no longer available. On ephemeral storage, files are lost after restart. Please re-upload the file.',                                                                                                                                                                                                                                                   +
+                    'detail': 'The original file is no longer available. Please re-upload the file.',
                     'file_path': file_path
                 }, status=status.HTTP_400_BAD_REQUEST)
             
