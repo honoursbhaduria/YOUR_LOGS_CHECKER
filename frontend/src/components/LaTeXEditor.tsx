@@ -192,7 +192,7 @@ const LaTeXEditor: React.FC<LaTeXEditorProps> = ({
                   </div>
                 ) : previewError ? (
                   <div className="text-center text-amber-400 max-w-md">
-                    <p className="text-base font-medium mb-2">⚠️ PDF Preview Unavailable</p>
+                    <p className="text-base font-medium mb-2">PDF Preview Unavailable</p>
                     <p className="text-sm mb-4 text-zinc-400">{previewError}</p>
                     <div className="bg-zinc-900 rounded-lg p-4 text-left">
                       <p className="text-xs text-zinc-500 mb-2">To get your report:</p>

@@ -85,6 +85,35 @@ const EventExplorer: React.FC = () => {
         </p>
       </div>
 
+      {/* Action Bar */}
+      <div className="mb-4 flex justify-end">
+        <button
+          onClick={async () => {
+            try {
+              const response = await apiClient.exportEventsCSV(Number(caseId));
+              const blob = new Blob([response.data], { type: 'text/csv' });
+              const url = window.URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `case_${caseId}_events.csv`;
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+              window.URL.revokeObjectURL(url);
+            } catch (error) {
+              console.error('Failed to export CSV:', error);
+              alert('Failed to export CSV file');
+            }
+          }}
+          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors flex items-center space-x-2"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          <span>Export CSV</span>
+        </button>
+      </div>
+
       {/* Filters */}
       <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-6 mb-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -176,7 +205,6 @@ const EventExplorer: React.FC = () => {
               {!filteredEvents || filteredEvents.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-6 py-12 text-center text-gray-400">
-                    <div className="text-4xl mb-2">🔍</div>
                     <p>No events found matching your criteria</p>
                   </td>
                 </tr>

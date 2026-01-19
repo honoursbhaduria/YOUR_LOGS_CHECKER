@@ -215,7 +215,6 @@ const InvestigationOverview: React.FC = () => {
               </p>
               <p className="text-3xl font-bold text-white">{totalEvents.toLocaleString()}</p>
             </div>
-            <div className="text-4xl">📊</div>
           </div>
         </div>
 
@@ -227,7 +226,6 @@ const InvestigationOverview: React.FC = () => {
               </p>
               <p className="text-3xl font-bold text-white">{highRiskEvents}</p>
             </div>
-            <div className="text-4xl">⚠️</div>
           </div>
         </div>
 
@@ -239,7 +237,6 @@ const InvestigationOverview: React.FC = () => {
               </p>
               <p className="text-3xl font-bold text-white">{criticalEvents}</p>
             </div>
-            <div className="text-4xl">🚨</div>
           </div>
         </div>
 
@@ -251,7 +248,6 @@ const InvestigationOverview: React.FC = () => {
               </p>
               <p className="text-3xl font-bold text-white">{normalEvents.toLocaleString()}</p>
             </div>
-            <div className="text-4xl">✓</div>
           </div>
         </div>
       </div>

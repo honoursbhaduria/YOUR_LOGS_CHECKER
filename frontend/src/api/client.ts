@@ -13,7 +13,7 @@ if (process.env.NODE_ENV === 'development') {
 
 // Check if API URL is localhost in production (common misconfiguration)
 if (process.env.NODE_ENV === 'production' && API_BASE_URL.includes('localhost')) {
-  console.warn('⚠️ WARNING: API URL is set to localhost in production. Set REACT_APP_API_URL environment variable to your backend URL.');
+  console.warn('WARNING: API URL is set to localhost in production. Set REACT_APP_API_URL environment variable to your backend URL.');
 }
 
 class ApiClient {
@@ -193,6 +193,12 @@ class ApiClient {
   // Scored events endpoints
   async getScoredEvents(params?: any) {
     return this.client.get('/scored-events/', { params });
+  }
+
+  async exportEventsCSV(caseId: number) {
+    return this.client.get(`/scored-events/export_csv/?case_id=${caseId}`, {
+      responseType: 'blob'
+    });
   }
 
   async archiveEvent(id: number) {

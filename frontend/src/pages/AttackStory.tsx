@@ -318,7 +318,7 @@ const AttackStory: React.FC = () => {
           <div className="bg-red-950/20 border border-red-900/30 rounded-lg p-4 mt-4">
             <p className="text-red-400 text-sm font-medium mb-2 flex items-center">
               <span className="w-2 h-2 bg-red-500 rounded-full mr-2 animate-pulse"></span>
-              ⚠️ Critical Security Alert
+              Critical Security Alert
             </p>
             <p className="text-zinc-300 text-sm">
               Detected <strong className="text-red-400">{analysis.summary.critical}</strong> critical security events including potential brute force attacks.

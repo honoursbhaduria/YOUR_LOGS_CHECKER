@@ -528,6 +528,63 @@ class ScoredEventViewSet(viewsets.ModelViewSet):
         event = self.get_object()
         generate_llm_explanation_task.delay(event.id)
         return Response({'status': 'explanation generation initiated'})
+    
+    @action(detail=False, methods=['get'])
+    def export_csv(self, request):
+        """Export scored events as CSV file"""
+        from django.http import HttpResponse
+        import csv
+        
+        case_id = request.query_params.get('case_id')
+        if not case_id:
+            return Response({'error': 'case_id required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            # Get events for the case owned by current user
+            events = ScoredEvent.objects.filter(
+                parsed_event__evidence_file__case_id=case_id,
+                parsed_event__evidence_file__case__created_by=request.user,
+                is_archived=False
+            ).select_related('parsed_event').order_by('-confidence')
+            
+            # Create CSV response
+            response = HttpResponse(content_type='text/csv')
+            response['Content-Disposition'] = f'attachment; filename="case_{case_id}_events.csv"'
+            
+            writer = csv.writer(response)
+            # Write header
+            writer.writerow([
+                'Timestamp',
+                'Event Type',
+                'User',
+                'Host',
+                'Confidence',
+                'Risk Label',
+                'Inference',
+                'Raw Message'
+            ])
+            
+            # Write events
+            for event in events:
+                writer.writerow([
+                    str(event.parsed_event.timestamp) if event.parsed_event.timestamp else '',
+                    event.parsed_event.event_type or '',
+                    event.parsed_event.user or '',
+                    event.parsed_event.host or '',
+                    f"{event.confidence:.3f}",
+                    event.risk_label or '',
+                    event.inference_text or '',
+                    event.parsed_event.raw_message or ''
+                ])
+            
+            return response
+            
+        except Exception as e:
+            logger.error(f"Error exporting CSV: {str(e)}")
+            return Response(
+                {'error': f'Failed to export CSV: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 class ScoringViewSet(viewsets.ViewSet):
