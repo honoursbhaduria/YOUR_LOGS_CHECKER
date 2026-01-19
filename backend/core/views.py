@@ -992,7 +992,6 @@ Evidence Files: {len(case_data['evidence_files'])}
                 filename=f"report_case_{case.id}_combined.zip",
                 content_type='application/zip'
             )
-                )
             
         except Exception as e:
             logger.error(f"Error generating combined report: {str(e)}")
