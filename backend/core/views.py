@@ -662,21 +662,26 @@ class ReportViewSet(viewsets.ModelViewSet):
         try:
             from .services.latex_report_generator import latex_generator
             
-            pdf_available = latex_generator._is_pdflatex_available()
+            local_pdflatex = latex_generator._is_pdflatex_available()
             
+            # PDF is always available now - either via local pdflatex or online API
             return Response({
-                'pdf_compilation': pdf_available,
+                'pdf_compilation': True,  # Always available via online API fallback
+                'local_pdflatex': local_pdflatex,
+                'online_compilation': True,
                 'latex_preview': True,
                 'csv_export': True,
-                'message': 'PDF compilation available' if pdf_available else 'PDF compilation not available - LaTeX source will be provided instead'
+                'message': 'PDF compilation available via local pdflatex' if local_pdflatex else 'PDF compilation available via online API (latexonline.cc)'
             })
         except Exception as e:
             logger.error(f"Capabilities check error: {str(e)}")
             return Response({
-                'pdf_compilation': False,
+                'pdf_compilation': True,  # Assume online API is available
+                'local_pdflatex': False,
+                'online_compilation': True,
                 'latex_preview': True,
                 'csv_export': True,
-                'message': f'Error checking capabilities: {str(e)}'
+                'message': f'Using online LaTeX compilation'
             })
     
     @action(detail=False, methods=['post'])
@@ -875,25 +880,7 @@ class ReportViewSet(viewsets.ModelViewSet):
         try:
             from .services.latex_report_generator import latex_generator
             
-            # Check if pdflatex is available
-            if not latex_generator._is_pdflatex_available():
-                if fallback_to_tex:
-                    # Return .tex file instead
-                    tex_buffer = io.BytesIO(latex_source.encode('utf-8'))
-                    tex_filename = filename.replace('.pdf', '.tex')
-                    return FileResponse(
-                        tex_buffer,
-                        as_attachment=True,
-                        filename=tex_filename,
-                        content_type='text/x-tex'
-                    )
-                else:
-                    return Response(
-                        {'error': 'pdflatex not available on server. Set fallback_to_tex=true to get .tex file.'},
-                        status=status.HTTP_503_SERVICE_UNAVAILABLE
-                    )
-            
-            # Compile custom LaTeX to PDF
+            # Compile custom LaTeX to PDF (uses online API if local pdflatex not available)
             pdf_bytes, error = latex_generator.compile_custom_latex(latex_source)
             
             if error:

@@ -12,6 +12,10 @@ import subprocess
 import tempfile
 import csv
 import io
+import logging
+import requests
+
+logger = logging.getLogger(__name__)
 
 
 class LaTeXReportGenerator:
@@ -473,11 +477,46 @@ class LaTeXReportGenerator:
         except Exception:
             return False
     
-    def _compile_latex_to_pdf(self, latex_content: str) -> bytes:
-        """Compile LaTeX to PDF using pdflatex"""
-        if not self._is_pdflatex_available():
-            raise Exception("pdflatex not available. PDF compilation requires LaTeX to be installed on the server. Install with: sudo apt-get install texlive-latex-base texlive-fonts-recommended texlive-latex-extra")
+    def _compile_latex_online(self, latex_content: str) -> bytes:
+        """Compile LaTeX to PDF using online API (latexonline.cc)"""
         
+        # Try latexonline.cc API
+        try:
+            url = "https://latexonline.cc/compile"
+            
+            # Send as form data
+            response = requests.post(
+                url,
+                data={'text': latex_content},
+                timeout=60,
+                headers={'Accept': 'application/pdf'}
+            )
+            
+            if response.status_code == 200 and response.headers.get('content-type', '').startswith('application/pdf'):
+                return response.content
+            else:
+                raise Exception(f"Online compilation failed: HTTP {response.status_code}")
+        except requests.exceptions.Timeout:
+            raise Exception("Online LaTeX compilation timeout (60s)")
+        except requests.exceptions.RequestException as e:
+            raise Exception(f"Online compilation error: {str(e)}")
+    
+    def _compile_latex_to_pdf(self, latex_content: str) -> bytes:
+        """Compile LaTeX to PDF - uses local pdflatex or online API as fallback"""
+        
+        # Try local pdflatex first
+        if self._is_pdflatex_available():
+            try:
+                return self._compile_latex_local(latex_content)
+            except Exception as local_error:
+                # If local fails, try online
+                logger.warning(f"Local pdflatex failed: {local_error}, trying online API")
+        
+        # Fallback to online API
+        return self._compile_latex_online(latex_content)
+    
+    def _compile_latex_local(self, latex_content: str) -> bytes:
+        """Compile LaTeX to PDF using local pdflatex"""
         with tempfile.TemporaryDirectory() as tmpdir:
             # Write LaTeX file
             tex_path = os.path.join(tmpdir, 'report.tex')
