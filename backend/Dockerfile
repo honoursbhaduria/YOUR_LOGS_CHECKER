@@ -19,13 +19,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy project
 COPY . .
 
-# Create entrypoint script
-RUN echo '#!/bin/bash\n\
-python manage.py migrate --noinput\n\
-python manage.py collectstatic --noinput\n\
-exec gunicorn config.wsgi:application --bind 0.0.0.0:${PORT:-8000}' > /app/entrypoint.sh \
-    && chmod +x /app/entrypoint.sh
+# Copy and set permissions for entrypoint
+RUN chmod +x /app/entrypoint.sh
 
-EXPOSE 8000
+# Render will override this with its own PORT
+ENV PORT=10000
 
-CMD ["/app/entrypoint.sh"]
+EXPOSE 10000
+
+CMD ["/bin/bash", "entrypoint.sh"]
