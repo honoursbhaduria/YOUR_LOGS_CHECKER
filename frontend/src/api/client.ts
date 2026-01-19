@@ -6,6 +6,16 @@ import axios, { AxiosInstance } from 'axios';
 
 const API_BASE_URL = (process.env.REACT_APP_API_URL?.endsWith('/api') ? process.env.REACT_APP_API_URL : `${process.env.REACT_APP_API_URL}/api`) || 'http://localhost:8000/api';
 
+// Log API URL in development for debugging
+if (process.env.NODE_ENV === 'development') {
+  console.log('API Base URL:', API_BASE_URL);
+}
+
+// Check if API URL is localhost in production (common misconfiguration)
+if (process.env.NODE_ENV === 'production' && API_BASE_URL.includes('localhost')) {
+  console.warn('⚠️ WARNING: API URL is set to localhost in production. Set REACT_APP_API_URL environment variable to your backend URL.');
+}
+
 class ApiClient {
   private client: AxiosInstance;
 

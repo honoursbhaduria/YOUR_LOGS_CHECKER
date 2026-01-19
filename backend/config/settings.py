@@ -11,7 +11,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Security settings
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'dev-key-change-in-production')
 DEBUG = os.getenv('DEBUG', 'True') == 'True'
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,your-logs-checker.onrender.com').split(',')
 
 # Application definition
 INSTALLED_APPS = [
@@ -181,7 +181,7 @@ SIMPLE_JWT = {
 # Strip trailing slashes from origins to avoid Django errors
 _cors_origins = os.getenv(
     'CORS_ALLOWED_ORIGINS',
-    'http://localhost:3000,http://127.0.0.1:3000'
+    'http://localhost:3000,http://127.0.0.1:3000,https://logscanner-ver.vercel.app'
 ).split(',')
 CORS_ALLOWED_ORIGINS = [origin.rstrip('/') for origin in _cors_origins]
 CORS_ALLOW_CREDENTIALS = True
