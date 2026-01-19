@@ -656,19 +656,28 @@ class ReportViewSet(viewsets.ModelViewSet):
         """Return only reports from cases owned by the current user"""
         return Report.objects.filter(case__created_by=self.request.user)
     
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=['get'], url_path='capabilities', url_name='capabilities')
     def capabilities(self, request):
         """Check what report capabilities are available on this server"""
-        from .services.latex_report_generator import latex_generator
-        
-        pdf_available = latex_generator._is_pdflatex_available()
-        
-        return Response({
-            'pdf_compilation': pdf_available,
-            'latex_preview': True,
-            'csv_export': True,
-            'message': 'PDF compilation available' if pdf_available else 'PDF compilation not available - LaTeX source will be provided instead'
-        })
+        try:
+            from .services.latex_report_generator import latex_generator
+            
+            pdf_available = latex_generator._is_pdflatex_available()
+            
+            return Response({
+                'pdf_compilation': pdf_available,
+                'latex_preview': True,
+                'csv_export': True,
+                'message': 'PDF compilation available' if pdf_available else 'PDF compilation not available - LaTeX source will be provided instead'
+            })
+        except Exception as e:
+            logger.error(f"Capabilities check error: {str(e)}")
+            return Response({
+                'pdf_compilation': False,
+                'latex_preview': True,
+                'csv_export': True,
+                'message': f'Error checking capabilities: {str(e)}'
+            })
     
     @action(detail=False, methods=['post'])
     def generate(self, request):
