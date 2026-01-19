@@ -19,6 +19,8 @@ const LaTeXEditor: React.FC<LaTeXEditorProps> = ({
   const [isDirty, setIsDirty] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(true);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
 
   // Cleanup blob URL on unmount
   useEffect(() => {
@@ -41,6 +43,8 @@ const LaTeXEditor: React.FC<LaTeXEditorProps> = ({
 
   const handleCompilePreview = async () => {
     // Compile and show preview in the right pane
+    setIsPreviewLoading(true);
+    setPreviewError(null);
     try {
       const blob = await onCompile(latexSource, false);
       if (blob) {
@@ -50,10 +54,16 @@ const LaTeXEditor: React.FC<LaTeXEditorProps> = ({
         }
         const url = URL.createObjectURL(blob);
         setPreviewUrl(url);
+        setPreviewError(null);
+      } else {
+        setPreviewError('PDF compilation failed. pdflatex may not be available on the server.');
       }
       setIsDirty(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Compilation failed:', error);
+      setPreviewError(error?.message || 'Compilation failed - check server logs');
+    } finally {
+      setIsPreviewLoading(false);
     }
   };
 
@@ -175,7 +185,18 @@ const LaTeXEditor: React.FC<LaTeXEditorProps> = ({
               </div>
               
               <div className="flex-1 overflow-auto bg-zinc-800 flex items-center justify-center p-4">
-                {previewUrl ? (
+                {isPreviewLoading ? (
+                  <div className="text-center text-zinc-400">
+                    <div className="animate-spin w-8 h-8 border-2 border-zinc-500 border-t-emerald-500 rounded-full mx-auto mb-4"></div>
+                    <p className="text-sm">Compiling LaTeX...</p>
+                  </div>
+                ) : previewError ? (
+                  <div className="text-center text-red-400 max-w-md">
+                    <p className="text-base font-medium mb-2">❌ Compilation Failed</p>
+                    <p className="text-sm mb-4">{previewError}</p>
+                    <p className="text-xs text-zinc-500">Try "Compile & Download" to get the .tex file instead</p>
+                  </div>
+                ) : previewUrl ? (
                   <iframe
                     src={previewUrl}
                     className="w-full h-full bg-white rounded"
