@@ -191,10 +191,17 @@ const LaTeXEditor: React.FC<LaTeXEditorProps> = ({
                     <p className="text-sm">Compiling LaTeX...</p>
                   </div>
                 ) : previewError ? (
-                  <div className="text-center text-red-400 max-w-md">
-                    <p className="text-base font-medium mb-2">❌ Compilation Failed</p>
-                    <p className="text-sm mb-4">{previewError}</p>
-                    <p className="text-xs text-zinc-500">Try "Compile & Download" to get the .tex file instead</p>
+                  <div className="text-center text-amber-400 max-w-md">
+                    <p className="text-base font-medium mb-2">⚠️ PDF Preview Unavailable</p>
+                    <p className="text-sm mb-4 text-zinc-400">{previewError}</p>
+                    <div className="bg-zinc-900 rounded-lg p-4 text-left">
+                      <p className="text-xs text-zinc-500 mb-2">To get your report:</p>
+                      <ol className="text-xs text-zinc-400 space-y-1 list-decimal list-inside">
+                        <li>Click <strong>"Compile & Download"</strong> to get the .tex file</li>
+                        <li>Upload to <a href="https://www.overleaf.com" target="_blank" rel="noopener noreferrer" className="text-emerald-400 underline">Overleaf.com</a> (free)</li>
+                        <li>Click "Recompile" in Overleaf to get PDF</li>
+                      </ol>
+                    </div>
                   </div>
                 ) : previewUrl ? (
                   <iframe

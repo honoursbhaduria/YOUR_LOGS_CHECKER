@@ -867,6 +867,7 @@ class ReportViewSet(viewsets.ModelViewSet):
         
         latex_source = request.data.get('latex_source')
         filename = request.data.get('filename', 'custom_report.pdf')
+        fallback_to_tex = request.data.get('fallback_to_tex', True)
         
         if not latex_source:
             return Response({'error': 'latex_source required'}, status=status.HTTP_400_BAD_REQUEST)
@@ -874,10 +875,38 @@ class ReportViewSet(viewsets.ModelViewSet):
         try:
             from .services.latex_report_generator import latex_generator
             
+            # Check if pdflatex is available
+            if not latex_generator._is_pdflatex_available():
+                if fallback_to_tex:
+                    # Return .tex file instead
+                    tex_buffer = io.BytesIO(latex_source.encode('utf-8'))
+                    tex_filename = filename.replace('.pdf', '.tex')
+                    return FileResponse(
+                        tex_buffer,
+                        as_attachment=True,
+                        filename=tex_filename,
+                        content_type='text/x-tex'
+                    )
+                else:
+                    return Response(
+                        {'error': 'pdflatex not available on server. Set fallback_to_tex=true to get .tex file.'},
+                        status=status.HTTP_503_SERVICE_UNAVAILABLE
+                    )
+            
             # Compile custom LaTeX to PDF
             pdf_bytes, error = latex_generator.compile_custom_latex(latex_source)
             
             if error:
+                if fallback_to_tex:
+                    # Return .tex file on compilation error
+                    tex_buffer = io.BytesIO(latex_source.encode('utf-8'))
+                    tex_filename = filename.replace('.pdf', '.tex')
+                    return FileResponse(
+                        tex_buffer,
+                        as_attachment=True,
+                        filename=tex_filename,
+                        content_type='text/x-tex'
+                    )
                 return Response(
                     {'error': f'LaTeX compilation failed: {error}'},
                     status=status.HTTP_400_BAD_REQUEST
@@ -894,6 +923,16 @@ class ReportViewSet(viewsets.ModelViewSet):
             
         except Exception as e:
             logger.error(f"Error compiling LaTeX: {str(e)}")
+            if fallback_to_tex:
+                # Fallback to .tex file on any error
+                tex_buffer = io.BytesIO(latex_source.encode('utf-8'))
+                tex_filename = filename.replace('.pdf', '.tex')
+                return FileResponse(
+                    tex_buffer,
+                    as_attachment=True,
+                    filename=tex_filename,
+                    content_type='text/x-tex'
+                )
             return Response(
                 {'error': f'Failed to compile: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR

@@ -176,31 +176,52 @@ const ReportGeneration: React.FC = () => {
   const handleCompileLatex = async (customLatexSource: string, download: boolean): Promise<Blob | null> => {
     setCompilingLatex(true);
     try {
+      // Always set fallback_to_tex=true for downloads, false for preview
       const response = await apiClient.compileCustomLatex(
         customLatexSource,
-        `report_case_${caseId}_custom.pdf`
+        `report_case_${caseId}_custom.pdf`,
+        download // fallback_to_tex - enabled for download, disabled for preview
       );
       
-      const blob = new Blob([response.data], { type: 'application/pdf' });
+      // Check content type to determine if we got PDF or TEX
+      const contentType = response.headers['content-type'] || '';
+      const isPdf = contentType.includes('pdf');
+      const isTex = contentType.includes('tex') || contentType.includes('text/x-tex');
       
       if (download) {
-        // Create blob and download
+        const blob = new Blob([response.data], { 
+          type: isPdf ? 'application/pdf' : 'text/x-tex' 
+        });
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.setAttribute('download', `report_case_${caseId}_custom.pdf`);
+        
+        // Use appropriate extension
+        const extension = isPdf ? '.pdf' : '.tex';
+        link.setAttribute('download', `report_case_${caseId}_custom${extension}`);
         document.body.appendChild(link);
         link.click();
         link.parentNode?.removeChild(link);
         window.URL.revokeObjectURL(url);
         
-        setSuccessMessage('PDF report compiled and downloaded successfully!');
-        setTimeout(() => setSuccessMessage(''), 5000);
+        if (isTex) {
+          setSuccessMessage('LaTeX source (.tex) downloaded! PDF compilation not available on server. Use Overleaf or local LaTeX to compile.');
+        } else {
+          setSuccessMessage('PDF report compiled and downloaded successfully!');
+        }
+        setTimeout(() => setSuccessMessage(''), 7000);
+        return blob;
+      } else {
+        // For preview, we need PDF - if we got .tex, return null
+        if (isTex) {
+          setErrorMessage('PDF preview not available. Use "Compile & Download" to get the .tex file.');
+          setTimeout(() => setErrorMessage(''), 5000);
+          return null;
+        }
+        return new Blob([response.data], { type: 'application/pdf' });
       }
-      
-      return blob;
     } catch (error: any) {
-      setErrorMessage('Failed to compile PDF: ' + (error.message || 'Unknown error'));
+      setErrorMessage('Failed to compile: ' + (error.response?.data?.error || error.message || 'Unknown error'));
       setTimeout(() => setErrorMessage(''), 5000);
       return null;
     } finally {
