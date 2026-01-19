@@ -12,6 +12,18 @@ interface ReportCapabilities {
   message: string;
 }
 
+interface AIAnalysis {
+  summary: string;
+  risk_assessment: string;
+  key_findings: string[];
+  recommendations: string[];
+  risk_counts: { CRITICAL: number; HIGH: number; MEDIUM: number; LOW: number };
+  event_count: number;
+  case_name: string;
+  generated_by: string;
+  error?: string;
+}
+
 const ReportGeneration: React.FC = () => {
   const { caseId } = useParams<{ caseId: string }>();
   const [generating, setGenerating] = useState(false);
@@ -24,6 +36,8 @@ const ReportGeneration: React.FC = () => {
   const [loadingLatex, setLoadingLatex] = useState(false);
   const [compilingLatex, setCompilingLatex] = useState(false);
   const [capabilities, setCapabilities] = useState<ReportCapabilities | null>(null);
+  const [aiAnalysis, setAiAnalysis] = useState<AIAnalysis | null>(null);
+  const [loadingAI, setLoadingAI] = useState(false);
 
   // Check server capabilities on mount
   useEffect(() => {
@@ -37,6 +51,27 @@ const ReportGeneration: React.FC = () => {
     };
     checkCapabilities();
   }, []);
+
+  // Fetch AI analysis on mount
+  const fetchAIAnalysis = async () => {
+    setLoadingAI(true);
+    try {
+      const response = await apiClient.getAIAnalysis(Number(caseId));
+      setAiAnalysis(response.data);
+    } catch (error: any) {
+      console.error('Failed to get AI analysis:', error);
+      setErrorMessage('Failed to load AI analysis: ' + (error.message || 'Unknown error'));
+      setTimeout(() => setErrorMessage(''), 5000);
+    } finally {
+      setLoadingAI(false);
+    }
+  };
+
+  useEffect(() => {
+    if (caseId) {
+      fetchAIAnalysis();
+    }
+  }, [caseId]);
 
   const { data: caseData } = useQuery<Case>({
     queryKey: ['case', caseId],
@@ -218,6 +253,117 @@ const ReportGeneration: React.FC = () => {
         <p className="text-zinc-500 text-sm">
           Generate comprehensive PDF/CSV reports with executive summary, timeline, and evidence
         </p>
+      </div>
+
+      {/* AI Analysis Section */}
+      <div className="bg-gradient-to-r from-zinc-900 to-zinc-950 border border-zinc-800 rounded-lg p-6 mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center space-x-3">
+            <span className="text-2xl">🤖</span>
+            <div>
+              <h2 className="text-lg font-medium text-zinc-100">AI-Powered Analysis</h2>
+              <p className="text-xs text-zinc-500">Powered by Gemini AI</p>
+            </div>
+          </div>
+          <button
+            onClick={fetchAIAnalysis}
+            disabled={loadingAI}
+            className="btn-secondary text-sm"
+          >
+            {loadingAI ? 'Analyzing...' : '🔄 Refresh Analysis'}
+          </button>
+        </div>
+
+        {loadingAI ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="animate-spin w-8 h-8 border-2 border-zinc-500 border-t-emerald-500 rounded-full"></div>
+            <span className="ml-3 text-zinc-400">Analyzing logs with Gemini AI...</span>
+          </div>
+        ) : aiAnalysis ? (
+          <div className="space-y-6">
+            {/* Executive Summary */}
+            <div className="bg-zinc-800/50 rounded-lg p-4">
+              <h3 className="text-sm font-medium text-zinc-300 mb-2">📋 Executive Summary</h3>
+              <p className="text-zinc-100">{aiAnalysis.summary}</p>
+            </div>
+
+            {/* Risk Overview */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              <div className="bg-zinc-800/50 rounded-lg p-4 text-center">
+                <p className="text-2xl font-bold text-zinc-100">{aiAnalysis.event_count}</p>
+                <p className="text-xs text-zinc-500">Total Events</p>
+              </div>
+              <div className="bg-red-950/50 border border-red-900/50 rounded-lg p-4 text-center">
+                <p className="text-2xl font-bold text-red-400">{aiAnalysis.risk_counts?.CRITICAL || 0}</p>
+                <p className="text-xs text-red-400">Critical</p>
+              </div>
+              <div className="bg-orange-950/50 border border-orange-900/50 rounded-lg p-4 text-center">
+                <p className="text-2xl font-bold text-orange-400">{aiAnalysis.risk_counts?.HIGH || 0}</p>
+                <p className="text-xs text-orange-400">High</p>
+              </div>
+              <div className="bg-yellow-950/50 border border-yellow-900/50 rounded-lg p-4 text-center">
+                <p className="text-2xl font-bold text-yellow-400">{aiAnalysis.risk_counts?.MEDIUM || 0}</p>
+                <p className="text-xs text-yellow-400">Medium</p>
+              </div>
+              <div className="bg-emerald-950/50 border border-emerald-900/50 rounded-lg p-4 text-center">
+                <p className="text-2xl font-bold text-emerald-400">{aiAnalysis.risk_counts?.LOW || 0}</p>
+                <p className="text-xs text-emerald-400">Low</p>
+              </div>
+            </div>
+
+            {/* Risk Assessment */}
+            <div className="bg-zinc-800/50 rounded-lg p-4">
+              <h3 className="text-sm font-medium text-zinc-300 mb-2">⚠️ Risk Assessment</h3>
+              <p className="text-zinc-100">{aiAnalysis.risk_assessment}</p>
+            </div>
+
+            {/* Key Findings & Recommendations Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Key Findings */}
+              <div className="bg-zinc-800/50 rounded-lg p-4">
+                <h3 className="text-sm font-medium text-zinc-300 mb-3">🔍 Key Findings</h3>
+                <ul className="space-y-2">
+                  {aiAnalysis.key_findings?.length > 0 ? (
+                    aiAnalysis.key_findings.map((finding, idx) => (
+                      <li key={idx} className="flex items-start space-x-2">
+                        <span className="text-emerald-500 mt-1">•</span>
+                        <span className="text-zinc-300 text-sm">{finding}</span>
+                      </li>
+                    ))
+                  ) : (
+                    <li className="text-zinc-500 text-sm">No specific findings identified</li>
+                  )}
+                </ul>
+              </div>
+
+              {/* Recommendations */}
+              <div className="bg-zinc-800/50 rounded-lg p-4">
+                <h3 className="text-sm font-medium text-zinc-300 mb-3">✅ Recommendations</h3>
+                <ul className="space-y-2">
+                  {aiAnalysis.recommendations?.length > 0 ? (
+                    aiAnalysis.recommendations.map((rec, idx) => (
+                      <li key={idx} className="flex items-start space-x-2">
+                        <span className="text-blue-500 mt-1">{idx + 1}.</span>
+                        <span className="text-zinc-300 text-sm">{rec}</span>
+                      </li>
+                    ))
+                  ) : (
+                    <li className="text-zinc-500 text-sm">No recommendations available</li>
+                  )}
+                </ul>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="text-xs text-zinc-600 text-center pt-2 border-t border-zinc-800">
+              Generated by {aiAnalysis.generated_by} • Case: {aiAnalysis.case_name}
+            </div>
+          </div>
+        ) : (
+          <div className="text-center py-8 text-zinc-500">
+            <p>No analysis available. Click "Refresh Analysis" to generate.</p>
+          </div>
+        )}
       </div>
 
       {/* Report Generation Section */}

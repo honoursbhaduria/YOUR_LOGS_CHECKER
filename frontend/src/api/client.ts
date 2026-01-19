@@ -264,6 +264,11 @@ class ApiClient {
     return this.client.get('/report/capabilities/');
   }
   
+  async getAIAnalysis(caseId: number) {
+    // Get AI-powered analysis summary using Gemini
+    return this.client.post('/report/ai_analysis/', { case_id: caseId });
+  }
+  
   getReportDownloadUrl(id: number): string {
     // Helper to construct direct download URL
     const token = localStorage.getItem('access_token');

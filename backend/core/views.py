@@ -899,6 +899,162 @@ class ReportViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
     
+    @action(detail=False, methods=['post'], url_path='ai_analysis', url_name='ai_analysis')
+    def ai_analysis(self, request):
+        """Generate AI-powered analysis summary of case logs using Gemini"""
+        case_id = request.data.get('case_id')
+        if not case_id:
+            return Response({'error': 'case_id required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            from .models import Case, ScoredEvent
+            from .services.llm_row_inference import get_llm_service
+            
+            # Get case
+            try:
+                case = Case.objects.get(id=case_id, created_by=request.user)
+            except Case.DoesNotExist:
+                return Response({'error': 'Case not found'}, status=status.HTTP_404_NOT_FOUND)
+            
+            # Get events
+            events = ScoredEvent.objects.filter(
+                parsed_event__evidence_file__case=case,
+                is_archived=False
+            ).select_related('parsed_event').order_by('-confidence')[:100]
+            
+            if not events.exists():
+                return Response({
+                    'summary': 'No events found to analyze. Please upload and parse evidence files first.',
+                    'risk_overview': 'N/A',
+                    'key_findings': [],
+                    'recommendations': [],
+                    'event_count': 0
+                })
+            
+            # Prepare event summary for AI
+            event_summary = []
+            risk_counts = {'CRITICAL': 0, 'HIGH': 0, 'MEDIUM': 0, 'LOW': 0}
+            
+            for event in events:
+                risk_counts[event.risk_label] = risk_counts.get(event.risk_label, 0) + 1
+                event_summary.append({
+                    'timestamp': str(event.parsed_event.timestamp) if event.parsed_event.timestamp else '',
+                    'type': event.parsed_event.event_type or 'Unknown',
+                    'user': event.parsed_event.user or 'N/A',
+                    'host': event.parsed_event.host or 'N/A',
+                    'risk': event.risk_label,
+                    'confidence': f"{event.confidence:.1%}",
+                    'message': (event.parsed_event.raw_message or '')[:150],
+                })
+            
+            # Build AI prompt
+            prompt = f"""You are a cybersecurity analyst. Analyze these security log events and provide a comprehensive yet easy-to-understand summary.
+
+Case: {case.name}
+Description: {case.description or 'No description provided'}
+
+Risk Distribution:
+- CRITICAL: {risk_counts.get('CRITICAL', 0)} events
+- HIGH: {risk_counts.get('HIGH', 0)} events  
+- MEDIUM: {risk_counts.get('MEDIUM', 0)} events
+- LOW: {risk_counts.get('LOW', 0)} events
+
+Top Events (sorted by confidence):
+{chr(10).join([f"- [{e['risk']}] {e['type']} by {e['user']} on {e['host']}: {e['message'][:100]}" for e in event_summary[:20]])}
+
+Please provide:
+1. **Executive Summary** (2-3 sentences explaining what happened in simple terms)
+2. **Risk Assessment** (overall risk level and what it means)
+3. **Key Findings** (3-5 bullet points of most important discoveries)
+4. **Recommended Actions** (3-5 specific steps to take)
+
+Format your response as JSON with keys: summary, risk_assessment, key_findings (array), recommendations (array)"""
+
+            # Call Gemini AI
+            try:
+                llm_service = get_llm_service()
+                
+                if llm_service.provider == 'google':
+                    import json
+                    response = llm_service.client.generate_content(
+                        prompt,
+                        generation_config={
+                            'temperature': 0.3,
+                            'max_output_tokens': 1000,
+                        }
+                    )
+                    ai_response = response.text
+                    
+                    # Try to parse as JSON
+                    try:
+                        # Clean up response (remove markdown code blocks if present)
+                        cleaned = ai_response.strip()
+                        if cleaned.startswith('```json'):
+                            cleaned = cleaned[7:]
+                        if cleaned.startswith('```'):
+                            cleaned = cleaned[3:]
+                        if cleaned.endswith('```'):
+                            cleaned = cleaned[:-3]
+                        
+                        ai_data = json.loads(cleaned.strip())
+                        
+                        return Response({
+                            'summary': ai_data.get('summary', 'Analysis completed'),
+                            'risk_assessment': ai_data.get('risk_assessment', f"Found {sum(risk_counts.values())} events"),
+                            'key_findings': ai_data.get('key_findings', []),
+                            'recommendations': ai_data.get('recommendations', []),
+                            'risk_counts': risk_counts,
+                            'event_count': len(events),
+                            'case_name': case.name,
+                            'generated_by': 'Gemini AI'
+                        })
+                    except json.JSONDecodeError:
+                        # Return raw response if not valid JSON
+                        return Response({
+                            'summary': ai_response[:500],
+                            'risk_assessment': f"Analyzed {sum(risk_counts.values())} events",
+                            'key_findings': [ai_response[500:1000]] if len(ai_response) > 500 else [],
+                            'recommendations': ['Review the full analysis above'],
+                            'risk_counts': risk_counts,
+                            'event_count': len(events),
+                            'case_name': case.name,
+                            'generated_by': 'Gemini AI'
+                        })
+                else:
+                    # Fallback for non-Google providers
+                    return Response({
+                        'summary': f"Case '{case.name}' contains {sum(risk_counts.values())} security events. {risk_counts.get('CRITICAL', 0)} critical and {risk_counts.get('HIGH', 0)} high-risk events detected.",
+                        'risk_assessment': 'HIGH' if risk_counts.get('CRITICAL', 0) > 0 else 'MEDIUM' if risk_counts.get('HIGH', 0) > 0 else 'LOW',
+                        'key_findings': [f"Found {v} {k.lower()} risk events" for k, v in risk_counts.items() if v > 0],
+                        'recommendations': ['Review high-confidence events', 'Generate detailed PDF report', 'Check event timeline'],
+                        'risk_counts': risk_counts,
+                        'event_count': len(events),
+                        'case_name': case.name,
+                        'generated_by': 'Rule-based analysis'
+                    })
+                    
+            except Exception as llm_error:
+                logger.error(f"LLM error: {str(llm_error)}")
+                # Fallback to basic stats
+                return Response({
+                    'summary': f"Case '{case.name}' analysis: Found {sum(risk_counts.values())} events with {risk_counts.get('CRITICAL', 0)} critical and {risk_counts.get('HIGH', 0)} high-risk issues.",
+                    'risk_assessment': 'Analysis pending - AI service unavailable',
+                    'key_findings': [f"Detected {v} {k.lower()} severity events" for k, v in risk_counts.items() if v > 0],
+                    'recommendations': ['Configure GOOGLE_API_KEY for AI analysis', 'Review events manually'],
+                    'risk_counts': risk_counts,
+                    'event_count': len(events),
+                    'case_name': case.name,
+                    'generated_by': 'Fallback (AI unavailable)',
+                    'error': str(llm_error)
+                })
+                
+        except Exception as e:
+            logger.error(f"Error in AI analysis: {str(e)}")
+            return Response(
+                {'error': f'Analysis failed: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
     @action(detail=False, methods=['post'])
     def generate_combined(self, request):
         """Generate nested LaTeX PDF report with accompanying CSV"""
