@@ -987,58 +987,62 @@ class DashboardViewSet(viewsets.ViewSet):
     @action(detail=False, methods=['get'])
     def summary(self, request):
         """Get dashboard summary statistics for the current user"""
-        user = request.user
-        
-        # Aggregate statistics for current user only
-        total_cases = Case.objects.filter(created_by=user).count()
-        total_evidence = EvidenceFile.objects.filter(case__created_by=user).count()
-        total_events = ScoredEvent.objects.filter(parsed_event__evidence_file__case__created_by=user).count()
-        high_risk = ScoredEvent.objects.filter(
-            parsed_event__evidence_file__case__created_by=user,
-            risk_label='HIGH', 
-            is_archived=False
-        ).count()
-        critical = ScoredEvent.objects.filter(
-            parsed_event__evidence_file__case__created_by=user,
-            risk_label='CRITICAL', 
-            is_archived=False
-        ).count()
-        
-        # Recent cases for current user
-        recent_cases = Case.objects.filter(created_by=user).order_by('-created_at')[:5]
-        
-        # Risk distribution for current user
-        risk_dist = ScoredEvent.objects.filter(
-            parsed_event__evidence_file__case__created_by=user,
-            is_archived=False
-        ).values('risk_label').annotate(count=Count('id'))
-        risk_distribution = {item['risk_label']: item['count'] for item in risk_dist}
-        
-        # Confidence distribution (bins) for current user
-        user_events = ScoredEvent.objects.filter(
-            parsed_event__evidence_file__case__created_by=user,
-            is_archived=False
-        )
-        confidence_bins = {
-            '0.0-0.3': user_events.filter(confidence__lt=0.3).count(),
-            '0.3-0.6': user_events.filter(confidence__gte=0.3, confidence__lt=0.6).count(),
-            '0.6-0.8': user_events.filter(confidence__gte=0.6, confidence__lt=0.8).count(),
-            '0.8-1.0': user_events.filter(confidence__gte=0.8).count(),
-        }
-        
-        summary_data = {
-            'total_cases': total_cases,
-            'total_evidence_files': total_evidence,
-            'total_events': total_events,
-            'high_risk_events': high_risk,
-            'critical_events': critical,
-            'recent_cases': CaseSerializer(recent_cases, many=True).data,
-            'risk_distribution': risk_distribution,
-            'confidence_distribution': confidence_bins,
-        }
-        
-        serializer = DashboardSummarySerializer(summary_data)
-        return Response(serializer.data)
+        try:
+            user = request.user
+            
+            # Aggregate statistics for current user only
+            total_cases = Case.objects.filter(created_by=user).count()
+            total_evidence = EvidenceFile.objects.filter(case__created_by=user).count()
+            total_events = ScoredEvent.objects.filter(parsed_event__evidence_file__case__created_by=user).count()
+            high_risk = ScoredEvent.objects.filter(
+                parsed_event__evidence_file__case__created_by=user,
+                risk_label='HIGH', 
+                is_archived=False
+            ).count()
+            critical = ScoredEvent.objects.filter(
+                parsed_event__evidence_file__case__created_by=user,
+                risk_label='CRITICAL', 
+                is_archived=False
+            ).count()
+            
+            # Recent cases for current user
+            recent_cases = Case.objects.filter(created_by=user).order_by('-created_at')[:5]
+            
+            # Risk distribution for current user
+            risk_dist = ScoredEvent.objects.filter(
+                parsed_event__evidence_file__case__created_by=user,
+                is_archived=False
+            ).values('risk_label').annotate(count=Count('id'))
+            risk_distribution = {item['risk_label']: item['count'] for item in risk_dist}
+            
+            # Confidence distribution (bins) for current user
+            user_events = ScoredEvent.objects.filter(
+                parsed_event__evidence_file__case__created_by=user,
+                is_archived=False
+            )
+            confidence_bins = {
+                '0.0-0.3': user_events.filter(confidence__lt=0.3).count(),
+                '0.3-0.6': user_events.filter(confidence__gte=0.3, confidence__lt=0.6).count(),
+                '0.6-0.8': user_events.filter(confidence__gte=0.6, confidence__lt=0.8).count(),
+                '0.8-1.0': user_events.filter(confidence__gte=0.8).count(),
+            }
+            
+            summary_data = {
+                'total_cases': total_cases,
+                'total_evidence_files': total_evidence,
+                'total_events': total_events,
+                'high_risk_events': high_risk,
+                'critical_events': critical,
+                'recent_cases': CaseSerializer(recent_cases, many=True).data,
+                'risk_distribution': risk_distribution,
+                'confidence_distribution': confidence_bins,
+            }
+            
+            serializer = DashboardSummarySerializer(summary_data)
+            return Response(serializer.data)
+        except Exception as e:
+            logger.error(f"Dashboard summary error: {str(e)}")
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     @action(detail=False, methods=['get'])
     def timeline(self, request):

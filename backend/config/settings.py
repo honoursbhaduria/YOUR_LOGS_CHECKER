@@ -86,11 +86,14 @@ import dj_database_url
 
 DATABASE_URL = os.getenv('DATABASE_URL')
 if DATABASE_URL:
+    # Remove channel_binding parameter if present (not supported by all drivers)
+    DATABASE_URL = DATABASE_URL.replace('&channel_binding=require', '')
     DATABASES = {
         'default': dj_database_url.config(
             default=DATABASE_URL,
             conn_max_age=600,
             conn_health_checks=True,
+            ssl_require=True,
         )
     }
 else:
