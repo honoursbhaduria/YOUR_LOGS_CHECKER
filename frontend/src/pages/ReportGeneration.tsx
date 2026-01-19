@@ -112,15 +112,10 @@ const ReportGeneration: React.FC = () => {
       link.parentNode?.removeChild(link);
       window.URL.revokeObjectURL(url);
       
-      // Show different message based on PDF availability
-      if (capabilities?.pdf_compilation) {
-        setSuccessMessage('Combined report (PDF + CSV) downloaded successfully!');
-      } else {
-        setSuccessMessage('Combined report (LaTeX source + CSV) downloaded! Compile the .tex file locally to get PDF.');
-      }
+      setSuccessMessage('Report downloaded! Contains PDF + CSV data.');
       setTimeout(() => setSuccessMessage(''), 5000);
     } catch (error: any) {
-      setErrorMessage('Failed to download combined report: ' + (error.message || 'Unknown error'));
+      setErrorMessage('Failed to download report: ' + (error.message || 'Unknown error'));
       setTimeout(() => setErrorMessage(''), 5000);
     } finally {
       setDownloadingCombined(false);
@@ -164,13 +159,13 @@ const ReportGeneration: React.FC = () => {
         link.parentNode?.removeChild(link);
         window.URL.revokeObjectURL(url);
         
-        setSuccessMessage('Custom LaTeX compiled and downloaded successfully!');
+        setSuccessMessage('PDF report compiled and downloaded successfully!');
         setTimeout(() => setSuccessMessage(''), 5000);
       }
       
       return blob;
     } catch (error: any) {
-      setErrorMessage('Failed to compile LaTeX: ' + (error.message || 'Unknown error'));
+      setErrorMessage('Failed to compile PDF: ' + (error.message || 'Unknown error'));
       setTimeout(() => setErrorMessage(''), 5000);
       return null;
     } finally {

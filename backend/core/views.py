@@ -837,12 +837,11 @@ class ReportViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'])
     def compile_custom_latex(self, request):
         """Compile custom LaTeX source code to PDF"""
-        from django.http import FileResponse, HttpResponse
+        from django.http import FileResponse
         import io
         
         latex_source = request.data.get('latex_source')
         filename = request.data.get('filename', 'custom_report.pdf')
-        fallback_to_tex = request.data.get('fallback_to_tex', False)
         
         if not latex_source:
             return Response({'error': 'latex_source required'}, status=status.HTTP_400_BAD_REQUEST)
@@ -850,21 +849,7 @@ class ReportViewSet(viewsets.ModelViewSet):
         try:
             from .services.latex_report_generator import latex_generator
             
-            # Check if pdflatex is available
-            if not latex_generator._is_pdflatex_available():
-                if fallback_to_tex:
-                    # Return LaTeX source as downloadable .tex file
-                    response = HttpResponse(latex_source, content_type='application/x-tex')
-                    response['Content-Disposition'] = f'attachment; filename="{filename.replace(".pdf", ".tex")}"'
-                    return response
-                else:
-                    return Response({
-                        'error': 'PDF compilation not available on this server. pdflatex is not installed.',
-                        'suggestion': 'Use fallback_to_tex=true to download the LaTeX source instead, or use the LaTeX preview feature.',
-                        'latex_available': False
-                    }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
-            
-            # Compile custom LaTeX
+            # Compile custom LaTeX to PDF
             pdf_bytes, error = latex_generator.compile_custom_latex(latex_source)
             
             if error:
@@ -883,7 +868,7 @@ class ReportViewSet(viewsets.ModelViewSet):
             )
             
         except Exception as e:
-            logger.error(f"Error compiling custom LaTeX: {str(e)}")
+            logger.error(f"Error compiling LaTeX: {str(e)}")
             return Response(
                 {'error': f'Failed to compile: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -956,54 +941,15 @@ class ReportViewSet(viewsets.ModelViewSet):
                     'avg_confidence': float(story.avg_confidence) if story.avg_confidence else 0.0,
                 })
             
-            # Check if pdflatex is available
-            if not latex_generator._is_pdflatex_available():
-                # Fallback: Return ZIP with LaTeX source and CSV (no PDF)
-                latex_content = latex_generator.generate_latex_preview(case_data)
-                csv_data = latex_generator._generate_report_csv(case_data)
-                
-                import io
-                zip_buffer = io.BytesIO()
-                with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-                    zip_file.writestr(f'report_case_{case.id}.tex', latex_content.encode('utf-8'))
-                    zip_file.writestr(f'report_case_{case.id}_data.csv', csv_data.encode('utf-8'))
-                    
-                    metadata = f"""Case Report - {case.name}
-Generated: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}
-Status: {case.status}
-Events Analyzed: {len(case_data['scored_events'])}
-Attack Patterns: {len(case_data['stories'])}
-Evidence Files: {len(case_data['evidence_files'])}
-
-NOTE: PDF compilation is not available on this server (pdflatex not installed).
-The LaTeX source (.tex file) is included instead. You can compile it locally using:
-  pdflatex report_case_{case.id}.tex
-"""
-                    zip_file.writestr('README.txt', metadata)
-                
-                zip_buffer.seek(0)
-                
-                return FileResponse(
-                    zip_buffer,
-                    as_attachment=True,
-                    filename=f"report_case_{case.id}_combined.zip",
-                    content_type='application/zip'
-                )
-            
-            # Generate nested report (PDF + CSV)
-            latex_content, pdf_bytes, csv_data = latex_generator.generate_nested_latex_report(case_data)
+            # Generate PDF and CSV report
             latex_content, pdf_bytes, csv_data = latex_generator.generate_nested_latex_report(case_data)
             
-            # Create ZIP file with both PDF and CSV
-            import tempfile
             import io
-            
             zip_buffer = io.BytesIO()
             with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
                 zip_file.writestr(f'report_case_{case.id}.pdf', pdf_bytes)
                 zip_file.writestr(f'report_case_{case.id}_data.csv', csv_data.encode('utf-8'))
                 
-                # Also add metadata
                 metadata = f"""Case Report - {case.name}
 Generated: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}
 Status: {case.status}
@@ -1021,6 +967,7 @@ Evidence Files: {len(case_data['evidence_files'])}
                 filename=f"report_case_{case.id}_combined.zip",
                 content_type='application/zip'
             )
+                )
             
         except Exception as e:
             logger.error(f"Error generating combined report: {str(e)}")

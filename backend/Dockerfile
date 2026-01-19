@@ -2,11 +2,14 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies including LaTeX for PDF generation
 RUN apt-get update && apt-get install -y \
     gcc \
     postgresql-client \
     libmagic1 \
+    texlive-latex-base \
+    texlive-fonts-recommended \
+    texlive-latex-extra \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
