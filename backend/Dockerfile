@@ -19,9 +19,13 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy project
 COPY . .
 
-# Run migrations and collect static
-RUN python manage.py collectstatic --noinput
+# Create entrypoint script
+RUN echo '#!/bin/bash\n\
+python manage.py migrate --noinput\n\
+python manage.py collectstatic --noinput\n\
+exec gunicorn config.wsgi:application --bind 0.0.0.0:${PORT:-8000}' > /app/entrypoint.sh \
+    && chmod +x /app/entrypoint.sh
 
 EXPOSE 8000
 
-CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000"]
+CMD ["/app/entrypoint.sh"]

@@ -4,9 +4,13 @@ Django settings for forensic log analysis system
 import os
 from pathlib import Path
 from datetime import timedelta
+from dotenv import load_dotenv
 
 # Build paths inside the project
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Load environment variables from .env file
+load_dotenv(BASE_DIR / '.env')
 
 # Security settings
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'dev-key-change-in-production')
@@ -197,7 +201,7 @@ CELERY_TIMEZONE = 'UTC'
 # LLM Configuration
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '')
 ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY', '')
-GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY', 'AIzaSyBeNOS_d1lTDg8ZMSTjFQu5ybzI-_T07s0')
+GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY', '')
 DEFAULT_LLM_PROVIDER = os.getenv('DEFAULT_LLM_PROVIDER', 'google')
 DEFAULT_LLM_MODEL = os.getenv('DEFAULT_LLM_MODEL', 'gemini-2.5-flash')
 
