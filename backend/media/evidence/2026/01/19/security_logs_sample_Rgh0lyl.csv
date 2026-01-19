@@ -1,0 +1,26 @@
+timestamp,user,host,event_type,source,message
+2024-01-12 14:23:15,admin,WORKSTATION-01,PowerShell_Exec,Security,PowerShell executed: Invoke-Mimikatz
+2024-01-12 14:23:45,admin,WORKSTATION-01,Remote_Login,Authentication,Remote Desktop connection from 192.168.1.50
+2024-01-12 14:24:12,admin,WORKSTATION-01,Credential_Dump,Security,Attempted credential dump detected
+2024-01-12 14:25:30,admin,WORKSTATION-02,Lateral_Movement,Security,SMB connection to WORKSTATION-02
+2024-01-12 14:26:05,admin,WORKSTATION-02,File_Transfer,Network,Large file transfer: 150MB to external IP
+2024-01-12 14:27:15,system,WORKSTATION-02,Service_Start,System,Service started: suspicious_service.exe
+2024-01-12 14:28:00,admin,WORKSTATION-02,Process_Creation,Security,Process created: cmd.exe with elevated privileges
+2024-01-12 14:29:30,admin,WORKSTATION-03,Remote_Exec,Security,Remote command execution via PsExec
+2024-01-12 14:30:15,admin,DC-01,Admin_Login,Authentication,Administrator login to domain controller
+2024-01-12 14:31:45,admin,DC-01,Group_Policy_Modify,Security,Group Policy Object modified
+2024-01-12 14:32:20,admin,DC-01,User_Created,Security,New user account created: backup_admin
+2024-01-12 14:33:10,backup_admin,DC-01,Privilege_Escalation,Security,User added to Domain Admins group
+2024-01-12 14:34:00,backup_admin,FILE-SERVER-01,File_Access,Security,Access to sensitive files: \\FILE-SERVER-01\HR\
+2024-01-12 14:35:30,backup_admin,FILE-SERVER-01,File_Copy,Security,Multiple files copied to external device
+2024-01-12 14:36:15,backup_admin,FILE-SERVER-01,Network_Connection,Network,Outbound connection to 45.33.32.156:443
+2024-01-12 14:37:00,system,FIREWALL-01,Traffic_Allowed,Firewall,Allowed: 45.33.32.156:443 (HTTPS)
+2024-01-12 14:38:20,backup_admin,WORKSTATION-01,Log_Clear,Security,Security event log cleared
+2024-01-12 14:39:00,system,WORKSTATION-01,Process_Terminate,Security,Antivirus process terminated
+2024-01-12 14:40:15,guest,WORKSTATION-04,Failed_Login,Authentication,Failed login attempt (5 attempts)
+2024-01-12 14:41:00,guest,WORKSTATION-04,Account_Lockout,Security,Account locked due to failed login attempts
+2024-01-12 15:00:00,john.doe,WORKSTATION-05,Normal_Login,Authentication,User login
+2024-01-12 15:05:30,john.doe,WORKSTATION-05,Email_Sent,Email,Email sent to external recipient
+2024-01-12 15:10:15,john.doe,WORKSTATION-05,Web_Browse,Proxy,HTTP request to google.com
+2024-01-12 15:15:00,service_account,APP-SERVER-01,Service_Start,System,Application service started
+2024-01-12 15:20:45,admin,DC-01,Password_Change,Security,Password changed for user: backup_admin

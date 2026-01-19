@@ -1,6 +1,7 @@
 """
 LaTeX Report Generation Service
 Generates professional forensic reports using LaTeX with nested structure
+Uses Gemini AI for intelligent executive summaries
 """
 from pylatex import Document, Section, Subsection, Table, Tabular, MultiColumn, Command
 from pylatex.utils import NoEscape, bold
@@ -14,6 +15,7 @@ import csv
 import io
 import logging
 import requests
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +24,203 @@ class LaTeXReportGenerator:
     """
     Generates LaTeX forensic reports and compiles to PDF
     Supports nested sections and hierarchical data presentation
+    Uses Gemini AI for intelligent summaries
     """
+    
+    def _generate_ai_summary(self, case_data: Dict) -> Dict:
+        """
+        Generate AI-powered executive summary using Gemini
+        
+        Returns dict with: summary, risk_assessment, key_findings, recommendations
+        """
+        try:
+            import google.generativeai as genai
+            
+            api_key = os.getenv('GOOGLE_API_KEY')
+            if not api_key:
+                logger.warning("GOOGLE_API_KEY not set, using basic summary")
+                return self._generate_basic_summary(case_data)
+            
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel(os.getenv('DEFAULT_LLM_MODEL', 'gemini-2.5-flash'))
+            
+            # Prepare event summary for AI
+            events = case_data.get('scored_events', [])
+            risk_counts = {'CRITICAL': 0, 'HIGH': 0, 'MEDIUM': 0, 'LOW': 0}
+            event_types = {}
+            users_involved = set()
+            hosts_involved = set()
+            
+            for event in events[:100]:  # Limit for token economy
+                risk_counts[event.get('risk_label', 'LOW')] = risk_counts.get(event.get('risk_label', 'LOW'), 0) + 1
+                event_type = event.get('event_type', 'Unknown')
+                event_types[event_type] = event_types.get(event_type, 0) + 1
+                if event.get('user'):
+                    users_involved.add(event.get('user'))
+                if event.get('host'):
+                    hosts_involved.add(event.get('host'))
+            
+            # Build prompt
+            prompt = f"""You are a senior cybersecurity forensic analyst. Analyze these security log events and provide a professional executive summary for a forensic report.
+
+CASE: {case_data['case']['name']}
+DESCRIPTION: {case_data['case'].get('description', 'Security investigation')}
+TOTAL EVENTS: {len(events)}
+
+RISK DISTRIBUTION:
+- Critical: {risk_counts.get('CRITICAL', 0)}
+- High: {risk_counts.get('HIGH', 0)}
+- Medium: {risk_counts.get('MEDIUM', 0)}
+- Low: {risk_counts.get('LOW', 0)}
+
+EVENT TYPES: {dict(list(event_types.items())[:10])}
+USERS INVOLVED: {list(users_involved)[:10]}
+HOSTS INVOLVED: {list(hosts_involved)[:10]}
+
+SAMPLE HIGH-RISK EVENTS:
+{chr(10).join([f"- [{e.get('risk_label')}] {e.get('event_type')}: {e.get('raw_message', '')[:100]}" for e in events if e.get('risk_label') in ['CRITICAL', 'HIGH']][:10])}
+
+Provide your analysis as JSON with these exact keys:
+{{
+  "executive_summary": "2-3 paragraph professional summary of findings",
+  "risk_assessment": "Overall risk level (Critical/High/Medium/Low) with brief explanation",
+  "key_findings": ["finding 1", "finding 2", "finding 3", "finding 4", "finding 5"],
+  "recommendations": ["action 1", "action 2", "action 3", "action 4", "action 5"],
+  "attack_timeline": "Brief timeline description if attack pattern detected"
+}}"""
+
+            response = model.generate_content(
+                prompt,
+                generation_config={
+                    'temperature': 0.3,
+                    'max_output_tokens': 1500,
+                }
+            )
+            
+            # Parse response
+            response_text = response.text.strip()
+            if response_text.startswith('```json'):
+                response_text = response_text[7:]
+            if response_text.startswith('```'):
+                response_text = response_text[3:]
+            if response_text.endswith('```'):
+                response_text = response_text[:-3]
+            
+            ai_data = json.loads(response_text.strip())
+            ai_data['generated_by'] = 'Gemini AI'
+            ai_data['risk_counts'] = risk_counts
+            return ai_data
+            
+        except Exception as e:
+            logger.error(f"AI summary generation failed: {str(e)}")
+            return self._generate_basic_summary(case_data)
+    
+    def _generate_basic_summary(self, case_data: Dict) -> Dict:
+        """Generate basic summary without AI"""
+        events = case_data.get('scored_events', [])
+        risk_counts = {'CRITICAL': 0, 'HIGH': 0, 'MEDIUM': 0, 'LOW': 0}
+        
+        for event in events:
+            risk_counts[event.get('risk_label', 'LOW')] = risk_counts.get(event.get('risk_label', 'LOW'), 0) + 1
+        
+        critical = risk_counts.get('CRITICAL', 0)
+        high = risk_counts.get('HIGH', 0)
+        
+        return {
+            'executive_summary': f"This forensic investigation analyzed {len(events)} security events from case '{case_data['case']['name']}'. "
+                                f"The analysis identified {critical} critical and {high} high-risk events requiring immediate attention. "
+                                f"Evidence was collected from {len(case_data.get('evidence_files', []))} source files.",
+            'risk_assessment': 'Critical' if critical > 0 else 'High' if high > 0 else 'Medium' if risk_counts.get('MEDIUM', 0) > 0 else 'Low',
+            'key_findings': [
+                f"Analyzed {len(events)} total security events",
+                f"Identified {critical} critical-risk events",
+                f"Identified {high} high-risk events",
+                f"Processed {len(case_data.get('evidence_files', []))} evidence files",
+                "Recommend reviewing high-confidence events first"
+            ],
+            'recommendations': [
+                "Review all critical and high-risk events immediately",
+                "Investigate user accounts with suspicious activity",
+                "Check affected hosts for compromise indicators",
+                "Update security controls based on findings",
+                "Document incident response actions taken"
+            ],
+            'attack_timeline': 'Timeline analysis pending - review events chronologically',
+            'generated_by': 'Rule-based Analysis',
+            'risk_counts': risk_counts
+        }
+    
+    def _add_ai_executive_summary(self, doc, ai_summary: Dict):
+        """Add AI-generated executive summary to the LaTeX document"""
+        
+        # Summary Overview
+        with doc.create(Subsection('Summary')):
+            doc.append(NoEscape(r'\textit{Analysis generated by: ' + self._escape_latex(ai_summary.get('generated_by', 'Unknown')) + r'}'))
+            doc.append(NoEscape(r'\vspace{0.3cm}'))
+            doc.append(NoEscape(r'\\'))
+            doc.append(self._escape_latex(ai_summary.get('executive_summary', 'No summary available.')))
+        
+        # Risk Assessment
+        with doc.create(Subsection('Risk Assessment')):
+            risk_level = ai_summary.get('risk_assessment', 'Unknown')
+            doc.append(NoEscape(r'\textbf{Overall Risk Level: }'))
+            
+            # Color code risk level
+            if 'Critical' in str(risk_level) or 'critical' in str(risk_level):
+                doc.append(NoEscape(r'{\color{red}\textbf{' + self._escape_latex(str(risk_level)) + r'}}'))
+            elif 'High' in str(risk_level) or 'high' in str(risk_level):
+                doc.append(NoEscape(r'{\color{orange}\textbf{' + self._escape_latex(str(risk_level)) + r'}}'))
+            elif 'Medium' in str(risk_level) or 'medium' in str(risk_level):
+                doc.append(NoEscape(r'{\color{yellow}\textbf{' + self._escape_latex(str(risk_level)) + r'}}'))
+            else:
+                doc.append(NoEscape(r'{\color{green}\textbf{' + self._escape_latex(str(risk_level)) + r'}}'))
+            
+            # Risk distribution table
+            risk_counts = ai_summary.get('risk_counts', {})
+            if risk_counts:
+                doc.append(NoEscape(r'\vspace{0.5cm}'))
+                doc.append(NoEscape(r'\\'))
+                doc.append(bold('Risk Distribution:'))
+                doc.append(NoEscape(r'\vspace{0.2cm}'))
+                
+                with doc.create(Tabular('|l|r|')) as table:
+                    table.add_hline()
+                    table.add_row((bold('Risk Level'), bold('Count')))
+                    table.add_hline()
+                    for level in ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']:
+                        count = risk_counts.get(level, 0)
+                        table.add_row((level, str(count)))
+                    table.add_hline()
+        
+        # Key Findings
+        with doc.create(Subsection('Key Findings')):
+            findings = ai_summary.get('key_findings', [])
+            if findings:
+                doc.append(NoEscape(r'\begin{enumerate}'))
+                for finding in findings[:10]:
+                    doc.append(NoEscape(r'\item ' + self._escape_latex(str(finding))))
+                doc.append(NoEscape(r'\end{enumerate}'))
+            else:
+                doc.append('No specific findings identified.')
+        
+        # Attack Timeline
+        with doc.create(Subsection('Attack Timeline')):
+            timeline = ai_summary.get('attack_timeline', '')
+            if timeline:
+                doc.append(self._escape_latex(str(timeline)))
+            else:
+                doc.append('No attack timeline detected.')
+        
+        # Recommendations
+        with doc.create(Subsection('Recommendations')):
+            recommendations = ai_summary.get('recommendations', [])
+            if recommendations:
+                doc.append(NoEscape(r'\begin{enumerate}'))
+                for rec in recommendations[:10]:
+                    doc.append(NoEscape(r'\item ' + self._escape_latex(str(rec))))
+                doc.append(NoEscape(r'\end{enumerate}'))
+            else:
+                doc.append('No specific recommendations at this time.')
     
     def generate_latex_report(self, case_data: Dict) -> tuple:
         """
@@ -82,6 +280,7 @@ class LaTeXReportGenerator:
     def generate_nested_latex_report(self, case_data: Dict) -> tuple:
         """
         Generate advanced nested LaTeX report with hierarchical structure
+        Uses Gemini AI for intelligent executive summaries
         
         Args:
             case_data: Dict containing case, evidence, events, stories
@@ -89,6 +288,11 @@ class LaTeXReportGenerator:
         Returns:
             tuple: (latex_content: str, pdf_bytes: bytes, csv_data: str)
         """
+        # Generate AI summary first
+        logger.info("Generating AI-powered executive summary...")
+        ai_summary = self._generate_ai_summary(case_data)
+        logger.info(f"Summary generated by: {ai_summary.get('generated_by', 'Unknown')}")
+        
         # Create LaTeX document with advanced formatting
         doc = Document(documentclass='report')  # Use report instead of article for better nesting
         
@@ -126,8 +330,14 @@ class LaTeXReportGenerator:
         
         doc.append(NoEscape(r'\newpage'))
         
-        # Executive Summary (Main Section)
-        with doc.create(Section('Executive Summary - Attack Stories')):
+        # AI-Powered Executive Summary (Main Section)
+        with doc.create(Section('Executive Summary')):
+            self._add_ai_executive_summary(doc, ai_summary)
+        
+        doc.append(NoEscape(r'\newpage'))
+        
+        # Attack Stories (Main Section)
+        with doc.create(Section('Attack Stories')):
             self._add_nested_attack_stories(doc, case_data)
         
         doc.append(NoEscape(r'\newpage'))

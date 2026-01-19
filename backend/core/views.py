@@ -322,6 +322,13 @@ class EvidenceFileViewSet(viewsets.ModelViewSet):
             
             logger.info(f"Synchronously parsed {len(events)} events from {evidence.filename}")
             
+            # Trigger synchronous scoring after parsing
+            try:
+                self._score_parsed_events_sync(evidence.id)
+            except Exception as score_error:
+                logger.error(f"Scoring failed for evidence {evidence_id}: {score_error}")
+                # Don't fail - parsing succeeded, just scoring failed
+            
         except Exception as e:
             logger.error(f"Error parsing evidence file {evidence_id}: {str(e)}")
             import traceback
@@ -332,6 +339,68 @@ class EvidenceFileViewSet(viewsets.ModelViewSet):
                 evidence.save()
             except:
                 pass
+    
+    def _score_parsed_events_sync(self, evidence_id):
+        """Synchronous ML scoring after parsing"""
+        from .models import EvidenceFile, ParsedEvent, ScoredEvent
+        from .services.ml_scoring import scorer
+        
+        try:
+            evidence = EvidenceFile.objects.get(id=evidence_id)
+            parsed_events = ParsedEvent.objects.filter(evidence_file=evidence)
+            
+            scored_count = 0
+            for parsed_event in parsed_events:
+                try:
+                    # Check if already scored
+                    if ScoredEvent.objects.filter(parsed_event=parsed_event).exists():
+                        continue
+                    
+                    # Prepare event data for scoring
+                    event_data = {
+                        'timestamp': parsed_event.timestamp,
+                        'user': parsed_event.user or '',
+                        'host': parsed_event.host or '',
+                        'event_type': parsed_event.event_type or 'unknown',
+                        'raw_message': parsed_event.raw_message or '',
+                    }
+                    
+                    # Score the event using ML scorer
+                    confidence, risk_label, feature_scores = scorer.score_event(event_data)
+                    
+                    # Generate basic inference text (AI can be added later via batch processing)
+                    event_type = parsed_event.event_type or 'unknown'
+                    user = parsed_event.user or 'unknown user'
+                    host = parsed_event.host or 'unknown host'
+                    
+                    if confidence >= 0.8:
+                        inference_text = f"Critical {event_type} activity detected from {user} on {host}"
+                    elif confidence >= 0.6:
+                        inference_text = f"High-risk {event_type} detected: {user}@{host}"
+                    elif confidence >= 0.3:
+                        inference_text = f"Suspicious {event_type} activity: {user}@{host}"
+                    else:
+                        inference_text = f"Normal {event_type} event: {user}@{host}"
+                    
+                    # Create scored event
+                    ScoredEvent.objects.create(
+                        parsed_event=parsed_event,
+                        confidence=confidence,
+                        risk_label=risk_label,
+                        inference_text=inference_text
+                    )
+                    scored_count += 1
+                    
+                except Exception as event_error:
+                    logger.error(f"Failed to score event {parsed_event.id}: {event_error}")
+                    continue
+            
+            logger.info(f"Scored {scored_count} events from evidence {evidence.filename}")
+            
+        except Exception as e:
+            logger.error(f"Error scoring events for evidence {evidence_id}: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
     
     @action(detail=True, methods=['get'])
     def hash(self, request, pk=None):
@@ -1244,8 +1313,7 @@ class DashboardViewSet(viewsets.ViewSet):
                 'confidence_distribution': confidence_bins,
             }
             
-            serializer = DashboardSummarySerializer(summary_data)
-            return Response(serializer.data)
+            return Response(summary_data)
         except Exception as e:
             logger.error(f"Dashboard summary error: {str(e)}")
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
