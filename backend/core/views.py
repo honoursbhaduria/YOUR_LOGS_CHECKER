@@ -682,16 +682,32 @@ class ReportViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'])
     def generate(self, request):
         """Generate new report"""
-        case_id = request.data.get('case_id')
-        format = request.data.get('format', 'PDF')
-        
-        if not case_id:
-            return Response({'error': 'case_id required'}, status=status.HTTP_400_BAD_REQUEST)
-        
-        # Trigger async report generation
-        generate_report_task.delay(case_id, format, request.user.id)
-        
-        return Response({'status': 'report generation initiated'})
+        try:
+            case_id = request.data.get('case_id')
+            report_format = request.data.get('format', 'PDF')
+            
+            if not case_id:
+                return Response({'error': 'case_id required'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Check if case exists and belongs to user
+            try:
+                case = Case.objects.get(id=case_id, created_by=request.user)
+            except Case.DoesNotExist:
+                return Response({'error': 'Case not found or access denied'}, status=status.HTTP_404_NOT_FOUND)
+            
+            # Try async first, fall back to sync if Celery not available
+            try:
+                generate_report_task.delay(case_id, report_format, request.user.id)
+                return Response({'status': 'report generation initiated'})
+            except Exception as celery_error:
+                logger.warning(f"Celery not available, running synchronously: {celery_error}")
+                # Run synchronously
+                generate_report_task(case_id, report_format, request.user.id)
+                return Response({'status': 'report generation completed'})
+                
+        except Exception as e:
+            logger.error(f"Report generate error: {str(e)}")
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     @action(detail=True, methods=['get'])
     def download(self, request, pk=None):
