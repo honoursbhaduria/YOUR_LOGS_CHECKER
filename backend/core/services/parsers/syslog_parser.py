@@ -59,8 +59,9 @@ class SyslogParser(BaseParser):
             }
         else:
             # Fallback: treat entire line as raw message
+            from django.utils import timezone
             return {
-                'timestamp': datetime.utcnow(),
+                'timestamp': timezone.now(),
                 'user': '',
                 'host': '',
                 'event_type': 'SYSLOG',
@@ -70,11 +71,17 @@ class SyslogParser(BaseParser):
     
     def _parse_syslog_timestamp(self, timestamp_str: str) -> datetime:
         """Parse syslog timestamp format (e.g., 'Jan 12 15:30:45')"""
+        from django.utils import timezone
+        import pytz
+        
         try:
             # Add current year since syslog doesn't include it
             current_year = datetime.now().year
             timestamp_with_year = f"{timestamp_str} {current_year}"
             dt = datetime.strptime(timestamp_with_year, "%b %d %H:%M:%S %Y")
+            # Make timezone-aware
+            if dt.tzinfo is None:
+                dt = timezone.make_aware(dt, pytz.UTC)
             return dt
         except Exception:
-            return datetime.utcnow()
+            return timezone.now()

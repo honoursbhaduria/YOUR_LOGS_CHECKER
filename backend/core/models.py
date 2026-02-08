@@ -87,12 +87,24 @@ class EvidenceFile(models.Model):
             sha256_hash.update(byte_block)
         self.file.seek(0)  # Reset file pointer
         return sha256_hash.hexdigest()
+    
+    @property
+    def event_count(self):
+        """Return number of parsed events"""
+        return self.parsed_events.count()
+    
+    @property
+    def scored_event_count(self):
+        """Return number of scored events"""
+        from .models import ScoredEvent
+        return ScoredEvent.objects.filter(parsed_event__evidence_file=self).count()
 
 
 class ParsedEvent(models.Model):
     """
     Normalized log event from raw evidence
     Master CSV schema: timestamp | user | host | event_type | raw_message
+    extra_data: JSONField for dynamic fields from any log format
     """
     evidence_file = models.ForeignKey(EvidenceFile, on_delete=models.CASCADE, related_name='parsed_events')
     
@@ -102,6 +114,9 @@ class ParsedEvent(models.Model):
     host = models.CharField(max_length=255, blank=True, db_index=True)
     event_type = models.CharField(max_length=255, db_index=True)
     raw_message = models.TextField()
+    
+    # Dynamic fields for any log format (method, path, status_code, etc.)
+    extra_data = models.JSONField(default=dict, blank=True)
     
     # Metadata
     line_number = models.IntegerField()

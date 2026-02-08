@@ -1,11 +1,18 @@
 #!/bin/bash
 # Script to start Celery worker for background task processing
 
-cd /home/honours/AI_logs_Checking/backend
+# Activate virtual environment if not already active
+if [ -z "$VIRTUAL_ENV" ]; then
+    echo "Activating virtual environment..."
+    source /home/honours/YOUR_LOGS_CHECKER/.venv/bin/activate
+fi
 
-echo "Installing Celery and dependencies..."
-pip3 install --user celery redis
+# Change to backend directory
+cd /home/honours/YOUR_LOGS_CHECKER/backend
+
+echo "Installing Celery and dependencies (if needed)..."
+pip install celery redis
 
 echo "Starting Celery worker..."
-python3 -m celery -A config worker --loglevel=info
+celery -A config worker --loglevel=info --pool=solo
 

@@ -22,6 +22,12 @@ const LaTeXEditor: React.FC<LaTeXEditorProps> = ({
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
 
+  // Update latexSource when initialLatex changes
+  useEffect(() => {
+    setLatexSource(initialLatex);
+    setIsDirty(false);
+  }, [initialLatex]);
+
   // Cleanup blob URL on unmount
   useEffect(() => {
     return () => {
@@ -32,7 +38,9 @@ const LaTeXEditor: React.FC<LaTeXEditorProps> = ({
   }, [previewUrl]);
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setLatexSource(e.target.value);
+    const newValue = e.target.value;
+    console.log('LaTeX editor: text changed, length:', newValue.length);
+    setLatexSource(newValue);
     setIsDirty(true);
   };
 
@@ -43,11 +51,15 @@ const LaTeXEditor: React.FC<LaTeXEditorProps> = ({
 
   const handleCompilePreview = async () => {
     // Compile and show preview in the right pane
+    console.log('Compiling LaTeX preview with source length:', latexSource.length);
+    console.log('First 100 chars:', latexSource.substring(0, 100));
+    
     setIsPreviewLoading(true);
     setPreviewError(null);
     try {
       const blob = await onCompile(latexSource, false);
       if (blob) {
+        console.log('PDF compilation successful, blob size:', blob.size);
         // Revoke old URL to avoid memory leaks
         if (previewUrl) {
           URL.revokeObjectURL(previewUrl);
@@ -55,10 +67,11 @@ const LaTeXEditor: React.FC<LaTeXEditorProps> = ({
         const url = URL.createObjectURL(blob);
         setPreviewUrl(url);
         setPreviewError(null);
+        setIsDirty(false); // Mark as saved after successful preview
       } else {
+        console.error('Compilation returned null blob');
         setPreviewError('PDF compilation failed. pdflatex may not be available on the server.');
       }
-      setIsDirty(false);
     } catch (error: any) {
       console.error('Compilation failed:', error);
       setPreviewError(error?.message || 'Compilation failed - check server logs');
@@ -75,8 +88,8 @@ const LaTeXEditor: React.FC<LaTeXEditorProps> = ({
   const lineCount = latexSource.split('\n').length;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-      <div className="bg-zinc-950 border border-zinc-800 rounded-lg w-[98%] h-[98%] flex flex-col">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-zinc-950 border border-zinc-800 rounded-lg w-[98%] h-[98%] flex flex-col" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-zinc-800 bg-zinc-900">
           <div>
@@ -116,10 +129,10 @@ const LaTeXEditor: React.FC<LaTeXEditorProps> = ({
 
             <button
               onClick={handleCompilePreview}
-              disabled={isCompiling}
+              disabled={isCompiling || isPreviewLoading}
               className="btn-secondary"
             >
-              {isCompiling ? 'Loading...' : 'Preview PDF'}
+              {isPreviewLoading ? 'Compiling...' : 'Preview PDF'}
             </button>
 
             {isDirty && (
@@ -158,6 +171,7 @@ const LaTeXEditor: React.FC<LaTeXEditorProps> = ({
             {/* Code Editor */}
             <div className="flex-1 overflow-hidden">
               <textarea
+                id="latex-editor-textarea"
                 value={latexSource}
                 onChange={handleChange}
                 onKeyDown={(e) => {
@@ -166,12 +180,19 @@ const LaTeXEditor: React.FC<LaTeXEditorProps> = ({
                     handleCompile();
                   }
                 }}
-                className="w-full h-full p-4 bg-zinc-950 text-zinc-100 font-mono text-sm leading-6 resize-none focus:outline-none"
+                className="w-full h-full p-4 bg-zinc-950 text-zinc-100 font-mono text-sm leading-6 resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 spellCheck={false}
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="off"
+                readOnly={false}
+                disabled={false}
                 style={{
                   tabSize: 2,
                   fontFamily: "'Fira Code', 'Courier New', monospace",
                 }}
+                placeholder="LaTeX source code..."
+                aria-label="LaTeX code editor"
               />
             </div>
           </div>
@@ -232,11 +253,11 @@ const LaTeXEditor: React.FC<LaTeXEditorProps> = ({
         <div className="p-3 border-t border-zinc-800 bg-zinc-900">
           <div className="flex items-center justify-between text-xs text-zinc-600">
             <div className="flex items-center gap-4">
-              <span>Tip: Edit on left, preview on right - just like Overleaf</span>
+              <span>Tip: Edit the code, then click "Preview PDF" to see changes</span>
             </div>
             <div className="flex items-center gap-2">
               <span className={isDirty ? 'text-amber-400' : 'text-emerald-400'}>
-                {isDirty ? '● Modified' : '✓ Saved'}
+                {isDirty ? '● Modified - Click Preview PDF' : '✓ Up to date'}
               </span>
             </div>
           </div>

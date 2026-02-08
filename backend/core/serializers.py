@@ -47,6 +47,8 @@ class EvidenceFileSerializer(serializers.ModelSerializer):
     """Evidence file serializer"""
     uploaded_by = UserSerializer(read_only=True)
     event_count = serializers.SerializerMethodField()
+    scored_event_count = serializers.SerializerMethodField()
+    processing_status = serializers.SerializerMethodField()
     filename = serializers.CharField(required=False)  # Make optional - will be extracted from uploaded file
     
     class Meta:
@@ -54,15 +56,47 @@ class EvidenceFileSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'case', 'filename', 'file', 'file_hash',
             'file_size', 'log_type', 'uploaded_by', 'uploaded_at',
-            'is_parsed', 'parsed_at', 'parse_error', 'event_count'
+            'is_parsed', 'parsed_at', 'parse_error', 'event_count',
+            'scored_event_count', 'processing_status'
         ]
         read_only_fields = [
             'id', 'file_hash', 'file_size', 'log_type',
-            'uploaded_at', 'is_parsed', 'parsed_at', 'event_count'
+            'uploaded_at', 'is_parsed', 'parsed_at', 'event_count',
+            'scored_event_count', 'processing_status'
         ]
     
     def get_event_count(self, obj):
-        return obj.parsed_events.count()
+        return obj.event_count
+    
+    def get_scored_event_count(self, obj):
+        return obj.scored_event_count
+    
+    def get_processing_status(self, obj):
+        """Get detailed processing status"""
+        status = {
+            'upload': 'completed',
+            'hash': 'completed',
+            'parsing': 'pending',
+            'scoring': 'pending',
+            'story_generation': 'pending'
+        }
+        
+        if obj.is_parsed:
+            status['parsing'] = 'completed'
+            if obj.event_count > 0:
+                if obj.scored_event_count > 0:
+                    status['scoring'] = 'completed'
+                    status['story_generation'] = 'ready'
+                else:
+                    status['scoring'] = 'in_progress'
+            else:
+                status['scoring'] = 'no_events'
+        elif obj.parse_error:
+            status['parsing'] = 'failed'
+        else:
+            status['parsing'] = 'in_progress'
+            
+        return status
 
 
 class ParsedEventSerializer(serializers.ModelSerializer):
@@ -74,7 +108,7 @@ class ParsedEventSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'evidence_file', 'evidence_filename',
             'timestamp', 'user', 'host', 'event_type', 'raw_message',
-            'line_number', 'parsed_at'
+            'extra_data', 'line_number', 'parsed_at'
         ]
         read_only_fields = ['id', 'parsed_at']
 

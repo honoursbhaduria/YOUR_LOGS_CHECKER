@@ -27,6 +27,9 @@ def detect_log_type(file_path: str, filename: str) -> str:
     elif extension == '.json':
         return 'JSON'
     elif extension in ['.log', '.txt']:
+        # Try to detect access log format first
+        if _is_access_log_format(file_path):
+            return 'ACCESS_LOG'
         # Try to detect syslog format
         if _is_syslog_format(file_path):
             return 'SYSLOG'
@@ -58,5 +61,21 @@ def _is_syslog_format(file_path: str) -> bool:
             # Simple heuristic: look for common syslog patterns
             syslog_indicators = ['<', '>', 'kernel:', 'syslog', 'daemon']
             return any(indicator in first_line.lower() for indicator in syslog_indicators)
+    except Exception:
+        return False
+
+
+def _is_access_log_format(file_path: str) -> bool:
+    """Check if file looks like Apache/Nginx access log"""
+    import re
+    try:
+        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+            first_line = f.readline()
+            # Access logs typically have IP, timestamp in brackets, HTTP method
+            # Pattern: IP - user [timestamp] "METHOD /path HTTP/x.x" status size
+            access_pattern = re.compile(
+                r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\s+.*\[.*\]\s+"(GET|POST|PUT|DELETE|HEAD|OPTIONS|PATCH)'
+            )
+            return bool(access_pattern.match(first_line))
     except Exception:
         return False

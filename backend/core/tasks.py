@@ -32,15 +32,33 @@ def parse_evidence_file_task(evidence_file_id):
             evidence.save()
             return
         
+        logger.info(f"Starting to parse {evidence.filename} ({evidence.file_size / 1024:.2f} KB)")
+        
         # Parse file
         events = parser.parse(evidence.file.path)
         
-        # Save parsed events
+        logger.info(f"Parsed {len(events)} events, now saving to database...")
+        
+        # Save parsed events using bulk_create for better performance
+        batch_size = 1000
+        parsed_events = []
+        
         for event_data in events:
-            ParsedEvent.objects.create(
+            parsed_events.append(ParsedEvent(
                 evidence_file=evidence,
                 **event_data
-            )
+            ))
+            
+            # Bulk insert in batches
+            if len(parsed_events) >= batch_size:
+                ParsedEvent.objects.bulk_create(parsed_events, batch_size=batch_size)
+                logger.info(f"Saved {len(parsed_events)} events to database")
+                parsed_events = []
+        
+        # Save remaining events
+        if parsed_events:
+            ParsedEvent.objects.bulk_create(parsed_events, batch_size=batch_size)
+            logger.info(f"Saved final {len(parsed_events)} events to database")
         
         # Mark as parsed
         evidence.is_parsed = True
@@ -48,7 +66,12 @@ def parse_evidence_file_task(evidence_file_id):
         evidence.parse_error = ''
         evidence.save()
         
-        logger.info(f"Successfully parsed {len(events)} events from {evidence.filename}")
+        logger.info(f"Successfully completed parsing {len(events)} events from {evidence.filename}")
+        
+        # Trigger bulk ML scoring for all parsed events
+        logger.info(f"Triggering bulk ML scoring for {len(events)} events...")
+        score_events_bulk_task.delay(evidence.case_id)
+        logger.info(f"Queued bulk scoring task for case {evidence.case_id}")
         
     except Exception as e:
         logger.error(f"Error parsing evidence file {evidence_file_id}: {str(e)}")
@@ -108,6 +131,129 @@ def score_events_task(parsed_event_id, recalculate=False):
         
     except Exception as e:
         logger.error(f"Error scoring event {parsed_event_id}: {str(e)}")
+
+
+@shared_task
+def score_events_bulk_task(case_id, threshold=0.0, recalculate=False):
+    """
+    Bulk score all parsed events for a case (optimized performance)
+    
+    Args:
+        case_id: Case ID or evidence file case ID
+        threshold: Minimum confidence threshold (default 0.0)
+        recalculate: If True, recalculate existing scores
+    """
+    from .models import ParsedEvent, ScoredEvent, Case
+    from .services.ml_scoring import scorer
+    
+    try:
+        # Get all parsed events for this case
+        parsed_events = ParsedEvent.objects.filter(
+            evidence_file__case_id=case_id
+        ).select_related('evidence_file')
+        
+        total_events = parsed_events.count()
+        logger.info(f"Starting bulk scoring for {total_events} events in case {case_id}")
+        
+        # Filter out already scored events if not recalculating
+        if not recalculate:
+            already_scored_ids = ScoredEvent.objects.filter(
+                parsed_event__evidence_file__case_id=case_id
+            ).values_list('parsed_event_id', flat=True)
+            parsed_events = parsed_events.exclude(id__in=already_scored_ids)
+            logger.info(f"Skipping {len(already_scored_ids)} already scored events")
+        
+        # Batch process events
+        batch_size = 1000
+        scored_events_to_create = []
+        scored_events_to_update = []
+        processed = 0
+        
+        for parsed_event in parsed_events.iterator(chunk_size=batch_size):
+            try:
+                # Prepare event data for scoring
+                event_data = {
+                    'timestamp': parsed_event.timestamp,
+                    'user': parsed_event.user or '',
+                    'host': parsed_event.host or '',
+                    'event_type': parsed_event.event_type or 'unknown',
+                    'raw_message': parsed_event.raw_message or '',
+                }
+                
+                # Score event
+                confidence, risk_label, feature_scores = scorer.score_event(event_data)
+                
+                # Generate basic inference text
+                event_type = parsed_event.event_type or 'unknown'
+                user = parsed_event.user or 'unknown user'
+                host = parsed_event.host or 'unknown host'
+                
+                if confidence >= 0.8:
+                    inference_text = f"Critical {event_type} activity detected from {user} on {host}"
+                elif confidence >= 0.6:
+                    inference_text = f"High-risk {event_type} detected: {user}@{host}"
+                elif confidence >= 0.3:
+                    inference_text = f"Suspicious {event_type} activity: {user}@{host}"
+                else:
+                    inference_text = f"Normal {event_type} event: {user}@{host}"
+                
+                # Prepare for bulk create/update
+                if recalculate and hasattr(parsed_event, 'scored'):
+                    scored_event = parsed_event.scored
+                    scored_event.confidence = confidence
+                    scored_event.risk_label = risk_label
+                    scored_event.feature_scores = feature_scores
+                    scored_event.inference_text = inference_text
+                    scored_events_to_update.append(scored_event)
+                else:
+                    scored_events_to_create.append(ScoredEvent(
+                        parsed_event=parsed_event,
+                        confidence=confidence,
+                        risk_label=risk_label,
+                        feature_scores=feature_scores,
+                        inference_text=inference_text
+                    ))
+                
+                processed += 1
+                
+                # Bulk insert/update in batches
+                if len(scored_events_to_create) >= batch_size:
+                    ScoredEvent.objects.bulk_create(scored_events_to_create, batch_size=batch_size)
+                    logger.info(f"Bulk created {len(scored_events_to_create)} scored events")
+                    scored_events_to_create = []
+                
+                if len(scored_events_to_update) >= batch_size:
+                    ScoredEvent.objects.bulk_update(
+                        scored_events_to_update,
+                        ['confidence', 'risk_label', 'feature_scores', 'inference_text'],
+                        batch_size=batch_size
+                    )
+                    logger.info(f"Bulk updated {len(scored_events_to_update)} scored events")
+                    scored_events_to_update = []
+                    
+            except Exception as event_error:
+                logger.error(f"Failed to score event {parsed_event.id}: {event_error}")
+                continue
+        
+        # Save remaining events
+        if scored_events_to_create:
+            ScoredEvent.objects.bulk_create(scored_events_to_create, batch_size=batch_size)
+            logger.info(f"Bulk created final {len(scored_events_to_create)} scored events")
+        
+        if scored_events_to_update:
+            ScoredEvent.objects.bulk_update(
+                scored_events_to_update,
+                ['confidence', 'risk_label', 'feature_scores', 'inference_text'],
+                batch_size=batch_size
+            )
+            logger.info(f"Bulk updated final {len(scored_events_to_update)} scored events")
+        
+        logger.info(f"Successfully bulk scored {processed} events for case {case_id}")
+        
+    except Exception as e:
+        logger.error(f"Error in bulk scoring for case {case_id}: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
 
 
 @shared_task
@@ -273,22 +419,24 @@ def generate_report_task(case_id, format='PDF', user_id=None, include_llm_explan
                 'uploaded_by': evidence.uploaded_by.username,
             })
         
-        # Scored events
+        # Scored events - ALL real data from parsed logs
         scored_events = ScoredEvent.objects.filter(
             parsed_event__evidence_file__case=case,
             is_archived=False
-        ).select_related('parsed_event').order_by('-confidence')[:500]
+        ).select_related('parsed_event', 'parsed_event__evidence_file').order_by('-confidence')[:500]
+        
+        logger.info(f"Generating report with {scored_events.count()} real parsed events")
         
         for event in scored_events:
             case_data['scored_events'].append({
                 'timestamp': event.parsed_event.timestamp,
-                'event_type': event.parsed_event.event_type,
+                'event_type': event.parsed_event.event_type or 'UNKNOWN',
                 'user': event.parsed_event.user or 'N/A',
                 'host': event.parsed_event.host or 'N/A',
-                'confidence': event.confidence,
-                'risk_label': event.risk_label,
+                'confidence': float(event.confidence),
+                'risk_label': event.risk_label or 'UNKNOWN',
                 'inference_text': event.inference_text if include_llm_explanations else '',
-                'raw_message': event.parsed_event.raw_message,
+                'raw_message': event.parsed_event.raw_message or '',
             })
         
         # Story patterns

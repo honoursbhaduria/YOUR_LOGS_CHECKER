@@ -26,45 +26,117 @@ const ATTACK_STAGES = [
   { id: 'impact', name: 'Impact', keywords: ['delete', 'encrypt', 'destroy', 'ransom'] },
 ];
 
-// Parse severity from raw_message
-const parseSeverity = (rawMessage: string): 'critical' | 'high' | 'medium' | 'low' => {
-  const msg = rawMessage.toLowerCase();
-  if (msg.includes('critical') || msg.includes('brute force')) return 'critical';
-  if (msg.includes('high') || msg.includes('failure') || msg.includes('failed')) return 'high';
-  if (msg.includes('medium')) return 'medium';
+// Parse severity from event data - works with any log format
+const parseSeverity = (event: ParsedEvent): 'critical' | 'high' | 'medium' | 'low' => {
+  const eventType = (event.event_type || '').toUpperCase();
+  const msg = (event.raw_message || '').toLowerCase();
+  
+  // Check event type for severity indicators (works with access logs, syslog, etc.)
+  if (eventType.includes('ATTACK') || eventType.includes('INJECTION') || 
+      eventType.includes('TRAVERSAL') || eventType.includes('SCANNER') ||
+      eventType.includes('CRITICAL') || eventType.includes('FATAL')) {
+    return 'critical';
+  }
+  
+  if (eventType.includes('FAILURE') || eventType.includes('DENIED') || 
+      eventType.includes('UNAUTHORIZED') || eventType.includes('ERROR') ||
+      eventType.includes('DELETE') || eventType.includes('ADMIN')) {
+    return 'high';
+  }
+  
+  if (eventType.includes('WARNING') || eventType.includes('MODIFICATION') ||
+      eventType.includes('LOGIN_SUCCESS') || eventType.includes('FILE_ACCESS')) {
+    return 'medium';
+  }
+  
+  // Also check message content
+  if (msg.includes('critical') || msg.includes('brute force') || msg.includes('exploit')) {
+    return 'critical';
+  }
+  if (msg.includes('failed') || msg.includes('denied') || msg.includes('error')) {
+    return 'high';
+  }
+  if (msg.includes('warning') || msg.includes('suspicious')) {
+    return 'medium';
+  }
+  
   return 'low';
 };
 
-// Classify event to attack stage
+// Classify event to attack stage - works with any log type
 const classifyStage = (event: ParsedEvent): string => {
   const msg = (event.raw_message || '').toLowerCase();
   const eventType = (event.event_type || '').toLowerCase();
-  const combined = `${msg} ${eventType}`;
+  const path = event.extra_data?.path || '';  // Access from extra_data for dynamic fields
+  const combined = `${msg} ${eventType} ${path}`.toLowerCase();
   
+  // Match based on event characteristics
   for (const stage of ATTACK_STAGES) {
     if (stage.keywords.some(kw => combined.includes(kw))) {
       return stage.id;
     }
   }
-  return 'unknown';
+  
+  // Default classification based on event type
+  if (eventType.includes('login') || eventType.includes('auth')) return 'initial_access';
+  if (eventType.includes('admin')) return 'privilege_escalation';
+  if (eventType.includes('scanner') || eventType.includes('recon')) return 'reconnaissance';
+  if (eventType.includes('file') || eventType.includes('access')) return 'collection';
+  if (eventType.includes('delete') || eventType.includes('modify')) return 'impact';
+  if (eventType.includes('attack')) return 'initial_access';
+  
+  return 'discovery'; // Default for general events
 };
 
-// Extract severity description from raw_message
-const getSeverityDescription = (rawMessage: string): string => {
-  const match = rawMessage.match(/severity=([^|]+)/);
-  return match ? match[1].trim() : '';
+// Extract severity description - works with any log format
+const getSeverityDescription = (event: ParsedEvent): string => {
+  const severity = parseSeverity(event);
+  const eventType = event.event_type || 'Unknown';
+  
+  // Return meaningful description based on event type
+  if (severity === 'critical') {
+    return `Critical security event: ${eventType}`;
+  } else if (severity === 'high') {
+    return `High-risk activity: ${eventType}`;
+  } else if (severity === 'medium') {
+    return `Medium-risk activity: ${eventType}`;
+  }
+  return `Normal activity: ${eventType}`;
 };
 
-// Extract source IP from raw_message  
-const getSourceIP = (rawMessage: string): string => {
-  const match = rawMessage.match(/src_ip=([^|]+)/);
-  return match ? match[1].trim() : 'N/A';
+// Extract source IP - works with any log format
+const getSourceIP = (event: ParsedEvent): string => {
+  // First check the host field (standard for all parsers)
+  if (event.host && event.host !== '-') {
+    return event.host;
+  }
+  
+  // Check extra_data for dynamic fields
+  const extraData = event.extra_data || {};
+  if (extraData.src_ip || extraData.source_ip || extraData.client_ip) {
+    return extraData.src_ip || extraData.source_ip || extraData.client_ip;
+  }
+  
+  // Fallback to parsing from raw_message
+  const msg = event.raw_message || '';
+  const match = msg.match(/(?:src_ip|source_ip|client_ip|remote_addr)[:=]\s*([^\s|,]+)/i) ||
+                msg.match(/\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\b/);
+  return match ? match[1] : 'N/A';
 };
 
-// Extract destination from raw_message
-const getDestination = (rawMessage: string): string => {
-  const match = rawMessage.match(/dest=([^|]+)/);
-  return match ? match[1].trim() : 'N/A';
+// Extract destination - works with any log format
+const getDestination = (event: ParsedEvent): string => {
+  const msg = event.raw_message || '';
+  const extraData = event.extra_data || {};
+  
+  // Check extra_data for path/destination fields
+  if (extraData.path || extraData.destination || extraData.dest || extraData.target) {
+    return extraData.path || extraData.destination || extraData.dest || extraData.target;
+  }
+  
+  // Fallback to parsing from raw_message
+  const match = msg.match(/(?:dest|destination|target|url|path)[:=]\s*([^\s|,]+)/i);
+  return match ? match[1] : 'N/A';
 };
 
 const AttackStory: React.FC = () => {
@@ -87,14 +159,23 @@ const AttackStory: React.FC = () => {
     },
   });
 
-  // Fetch parsed events for this case
-  const { data: parsedEvents, isLoading: eventsLoading } = useQuery<ParsedEvent[]>({
-    queryKey: ['parsed-events-case', caseId],
+  // Fetch parsed events for this case via scored events (which we know works)
+  const { data: scoredEventsResponse, isLoading: eventsLoading } = useQuery({
+    queryKey: ['scored-events-for-story', caseId],
     queryFn: async () => {
-      const response = await apiClient.getParsedEvents({ case: Number(caseId) });
-      return response.data.results || response.data || [];
+      const response = await apiClient.getScoredEvents({
+        parsed_event__evidence_file__case: caseId,
+        page_size: 10000,
+      });
+      return response.data;
     },
   });
+
+  // Extract parsed events from scored events
+  const parsedEvents = useMemo(() => {
+    const scored = scoredEventsResponse?.results || scoredEventsResponse || [];
+    return Array.isArray(scored) ? scored.map((se: any) => se.parsed_event).filter(Boolean) : [];
+  }, [scoredEventsResponse]);
 
   // Analyze all events and classify by severity and stage
   const analysis = useMemo(() => {
@@ -115,7 +196,7 @@ const AttackStory: React.FC = () => {
     let criticalCount = 0, highCount = 0, mediumCount = 0, lowCount = 0;
 
     parsedEvents.forEach(event => {
-      const severity = parseSeverity(event.raw_message || '');
+      const severity = parseSeverity(event);
       const stage = classifyStage(event);
 
       // Count by severity
@@ -137,7 +218,7 @@ const AttackStory: React.FC = () => {
 
       // Track IPs for critical events
       if (severity === 'critical') {
-        const ip = getSourceIP(event.raw_message || '');
+        const ip = getSourceIP(event);
         if (ip !== 'N/A') {
           ipCounts[ip] = (ipCounts[ip] || 0) + 1;
         }
@@ -174,8 +255,8 @@ const AttackStory: React.FC = () => {
       name: stage.name.split(' ')[0], // Short name
       fullName: stage.name,
       events: (analysis.eventsByStage[stage.id] || []).length,
-      critical: (analysis.eventsByStage[stage.id] || []).filter(e => parseSeverity(e.raw_message || '') === 'critical').length,
-      high: (analysis.eventsByStage[stage.id] || []).filter(e => parseSeverity(e.raw_message || '') === 'high').length,
+      critical: (analysis.eventsByStage[stage.id] || []).filter(e => parseSeverity(e) === 'critical').length,
+      high: (analysis.eventsByStage[stage.id] || []).filter(e => parseSeverity(e) === 'high').length,
     }));
 
     // Timeline data - group events by hour
@@ -185,7 +266,7 @@ const AttackStory: React.FC = () => {
         const hour = new Date(event.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
         if (!timelineMap[hour]) timelineMap[hour] = { time: hour, events: 0, critical: 0 };
         timelineMap[hour].events++;
-        if (parseSeverity(event.raw_message || '') === 'critical') {
+        if (parseSeverity(event) === 'critical') {
           timelineMap[hour].critical++;
         }
       }
@@ -462,7 +543,7 @@ const AttackStory: React.FC = () => {
                   const stageStories = storiesByStage?.[stage.id] || [];
                   const hasActivity = stageEvents.length > 0 || stageStories.length > 0;
                   const eventCount = stageEvents.length + stageStories.length;
-                  const hasCritical = stageEvents.some(e => parseSeverity(e.raw_message || '') === 'critical');
+                  const hasCritical = stageEvents.some(e => parseSeverity(e) === 'critical');
                   const percentage = analysis.summary.total > 0 ? Math.round((eventCount / analysis.summary.total) * 100) : 0;
 
                   return (
@@ -529,12 +610,12 @@ const AttackStory: React.FC = () => {
                       </span>
                     </div>
                     <p className="text-sm text-zinc-300 mb-2">
-                      {getSeverityDescription(event.raw_message) || event.event_type || 'Security event detected'}
+                      {getSeverityDescription(event) || event.event_type || 'Security event detected'}
                     </p>
                     <div className="flex flex-wrap items-center gap-4 text-xs text-zinc-500">
                       <span>User: <span className="text-zinc-400">{event.user || 'N/A'}</span></span>
-                      <span>Source IP: <span className="text-red-400 font-mono">{getSourceIP(event.raw_message)}</span></span>
-                      <span>Target: <span className="text-zinc-400">{getDestination(event.raw_message)}</span></span>
+                      <span>Source IP: <span className="text-red-400 font-mono">{getSourceIP(event)}</span></span>
+                      <span>Target: <span className="text-zinc-400">{getDestination(event)}</span></span>
                       <span>Host: <span className="text-zinc-400">{event.host || 'N/A'}</span></span>
                     </div>
                   </div>
@@ -555,12 +636,12 @@ const AttackStory: React.FC = () => {
                     <div className="flex items-center space-x-3">
                       {getSeverityBadge('high')}
                       <span className="text-sm text-zinc-300">
-                        {getSeverityDescription(event.raw_message) || event.event_type}
+                        {getSeverityDescription(event) || event.event_type}
                       </span>
                     </div>
                     <div className="flex items-center space-x-4 text-xs text-zinc-500">
                       <span>{event.user || 'N/A'}</span>
-                      <span className="text-orange-400 font-mono">{getSourceIP(event.raw_message)}</span>
+                      <span className="text-orange-400 font-mono">{getSourceIP(event)}</span>
                       <span>{event.timestamp ? new Date(event.timestamp).toLocaleTimeString() : ''}</span>
                     </div>
                   </div>
@@ -598,11 +679,11 @@ const AttackStory: React.FC = () => {
                 <tbody>
                   {(parsedEvents || []).slice(0, 50).map((event, idx) => (
                     <tr key={event.id || idx} className="border-b border-zinc-800/50 hover:bg-zinc-800/30">
-                      <td className="py-2 px-2">{getSeverityBadge(parseSeverity(event.raw_message || ''))}</td>
+                      <td className="py-2 px-2">{getSeverityBadge(parseSeverity(event))}</td>
                       <td className="py-2 px-2 text-zinc-300 font-mono text-xs">{event.event_type}</td>
-                      <td className="py-2 px-2 text-zinc-400 max-w-xs truncate">{getSeverityDescription(event.raw_message) || '-'}</td>
+                      <td className="py-2 px-2 text-zinc-400 max-w-xs truncate">{getSeverityDescription(event) || '-'}</td>
                       <td className="py-2 px-2 text-zinc-400">{event.user || '-'}</td>
-                      <td className="py-2 px-2 text-zinc-400 font-mono">{getSourceIP(event.raw_message)}</td>
+                      <td className="py-2 px-2 text-zinc-400 font-mono">{getSourceIP(event)}</td>
                       <td className="py-2 px-2 text-zinc-500 text-xs">{event.timestamp ? new Date(event.timestamp).toLocaleString() : '-'}</td>
                     </tr>
                   ))}

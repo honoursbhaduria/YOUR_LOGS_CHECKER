@@ -29,7 +29,7 @@ from .serializers import (
 from .services.log_detection import detect_log_type
 from .services.hashing import calculate_sha256
 from .tasks import (
-    parse_evidence_file_task, score_events_task,
+    parse_evidence_file_task, score_events_task, score_events_bulk_task,
     generate_story_task, generate_report_task
 )
 
@@ -100,24 +100,21 @@ class CaseViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Trigger scoring tasks
-        task_ids = []
+        # Trigger bulk scoring task
         try:
-            for event in parsed_events:
-                task = score_events_task.delay(event.id)
-                task_ids.append(str(task.id))
+            from .tasks import score_events_bulk_task
+            task = score_events_bulk_task.delay(case.id, threshold)
+            return Response({
+                'status': 'scoring initiated',
+                'events_count': parsed_events.count(),
+                'task_id': str(task.id),
+                'threshold': threshold
+            })
         except Exception as e:
             return Response(
                 {'status': 'partial', 'message': f'Celery not available: {str(e)}', 'events_count': parsed_events.count()},
                 status=status.HTTP_202_ACCEPTED
             )
-        
-        return Response({
-            'status': 'scoring initiated',
-            'events_count': parsed_events.count(),
-            'task_ids': task_ids[:5],  # Return first 5 task IDs
-            'threshold': threshold
-        })
     
     @action(detail=True, methods=['post'])
     def generate_story(self, request, pk=None):
@@ -322,12 +319,7 @@ class EvidenceFileViewSet(viewsets.ModelViewSet):
             
             logger.info(f"Synchronously parsed {len(events)} events from {evidence.filename}")
             
-            # Trigger synchronous scoring after parsing
-            try:
-                self._score_parsed_events_sync(evidence.id)
-            except Exception as score_error:
-                logger.error(f"Scoring failed for evidence {evidence_id}: {score_error}")
-                # Don't fail - parsing succeeded, just scoring failed
+            # Scoring will be triggered by Celery task after parsing completes
             
         except Exception as e:
             logger.error(f"Error parsing evidence file {evidence_id}: {str(e)}")
@@ -339,68 +331,6 @@ class EvidenceFileViewSet(viewsets.ModelViewSet):
                 evidence.save()
             except:
                 pass
-    
-    def _score_parsed_events_sync(self, evidence_id):
-        """Synchronous ML scoring after parsing"""
-        from .models import EvidenceFile, ParsedEvent, ScoredEvent
-        from .services.ml_scoring import scorer
-        
-        try:
-            evidence = EvidenceFile.objects.get(id=evidence_id)
-            parsed_events = ParsedEvent.objects.filter(evidence_file=evidence)
-            
-            scored_count = 0
-            for parsed_event in parsed_events:
-                try:
-                    # Check if already scored
-                    if ScoredEvent.objects.filter(parsed_event=parsed_event).exists():
-                        continue
-                    
-                    # Prepare event data for scoring
-                    event_data = {
-                        'timestamp': parsed_event.timestamp,
-                        'user': parsed_event.user or '',
-                        'host': parsed_event.host or '',
-                        'event_type': parsed_event.event_type or 'unknown',
-                        'raw_message': parsed_event.raw_message or '',
-                    }
-                    
-                    # Score the event using ML scorer
-                    confidence, risk_label, feature_scores = scorer.score_event(event_data)
-                    
-                    # Generate basic inference text (AI can be added later via batch processing)
-                    event_type = parsed_event.event_type or 'unknown'
-                    user = parsed_event.user or 'unknown user'
-                    host = parsed_event.host or 'unknown host'
-                    
-                    if confidence >= 0.8:
-                        inference_text = f"Critical {event_type} activity detected from {user} on {host}"
-                    elif confidence >= 0.6:
-                        inference_text = f"High-risk {event_type} detected: {user}@{host}"
-                    elif confidence >= 0.3:
-                        inference_text = f"Suspicious {event_type} activity: {user}@{host}"
-                    else:
-                        inference_text = f"Normal {event_type} event: {user}@{host}"
-                    
-                    # Create scored event
-                    ScoredEvent.objects.create(
-                        parsed_event=parsed_event,
-                        confidence=confidence,
-                        risk_label=risk_label,
-                        inference_text=inference_text
-                    )
-                    scored_count += 1
-                    
-                except Exception as event_error:
-                    logger.error(f"Failed to score event {parsed_event.id}: {event_error}")
-                    continue
-            
-            logger.info(f"Scored {scored_count} events from evidence {evidence.filename}")
-            
-        except Exception as e:
-            logger.error(f"Error scoring events for evidence {evidence_id}: {str(e)}")
-            import traceback
-            logger.error(traceback.format_exc())
     
     @action(detail=True, methods=['get'])
     def hash(self, request, pk=None):
@@ -483,19 +413,39 @@ class ScoredEventViewSet(viewsets.ModelViewSet):
     """
     ViewSet for scored events
     Users can only see scored events from their own cases
+    Supports custom page_size via query parameter
     """
     serializer_class = ScoredEventSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['risk_label', 'is_archived', 'is_false_positive']
+    filterset_fields = ['risk_label', 'is_archived', 'is_false_positive', 'parsed_event__evidence_file__case']
     search_fields = ['parsed_event__event_type', 'inference_text']
     ordering_fields = ['confidence', 'parsed_event__timestamp', 'scored_at']
     
     def get_queryset(self):
         """Return only scored events from cases owned by the current user"""
-        return ScoredEvent.objects.select_related('parsed_event').filter(
+        return ScoredEvent.objects.select_related(
+            'parsed_event',
+            'parsed_event__evidence_file',
+            'parsed_event__evidence_file__case'
+        ).filter(
             parsed_event__evidence_file__case__created_by=self.request.user
         )
+    
+    def list(self, request, *args, **kwargs):
+        """Override list to support custom page_size parameter"""
+        # Allow custom page_size from query params (up to 10000)
+        page_size = request.query_params.get('page_size')
+        if page_size:
+            try:
+                page_size = int(page_size)
+                # Cap at 10000 to prevent excessive memory usage
+                page_size = min(page_size, 10000)
+                self.pagination_class.page_size = page_size
+            except (ValueError, AttributeError):
+                pass
+        
+        return super().list(request, *args, **kwargs)
     
     @action(detail=True, methods=['post'])
     def archive(self, request, pk=None):
@@ -600,15 +550,13 @@ class ScoringViewSet(viewsets.ViewSet):
         if not case_id:
             return Response({'error': 'case_id required'}, status=status.HTTP_400_BAD_REQUEST)
         
-        # Trigger scoring for all parsed events in case
-        parsed_events = ParsedEvent.objects.filter(evidence_file__case_id=case_id)
-        
-        for event in parsed_events:
-            score_events_task.delay(event.id)
+        # Trigger bulk scoring for all parsed events in case
+        from .tasks import score_events_bulk_task
+        task = score_events_bulk_task.delay(case_id)
         
         return Response({
             'status': 'scoring initiated',
-            'events_count': parsed_events.count()
+            'task_id': str(task.id)
         })
     
     @action(detail=False, methods=['post'])
@@ -618,16 +566,12 @@ class ScoringViewSet(viewsets.ViewSet):
         if not case_id:
             return Response({'error': 'case_id required'}, status=status.HTTP_400_BAD_REQUEST)
         
-        scored_events = ScoredEvent.objects.filter(
-            parsed_event__evidence_file__case_id=case_id
-        )
-        
-        for event in scored_events:
-            score_events_task.delay(event.parsed_event_id, recalculate=True)
+        from .tasks import score_events_bulk_task
+        task = score_events_bulk_task.delay(case_id, recalculate=True)
         
         return Response({
             'status': 'recalculation initiated',
-            'events_count': scored_events.count()
+            'task_id': str(task.id)
         })
 
 
@@ -646,18 +590,22 @@ class FilterViewSet(viewsets.ViewSet):
         if not case_id:
             return Response({'error': 'case_id required'}, status=status.HTTP_400_BAD_REQUEST)
         
-        # Archive events below threshold
+        # Archive events below threshold using bulk update
         scored_events = ScoredEvent.objects.filter(
             parsed_event__evidence_file__case_id=case_id
         )
         
-        archived_count = 0
-        for event in scored_events:
-            if event.confidence < threshold and not event.is_archived:
-                event.archive()
-                archived_count += 1
-            elif event.confidence >= threshold and event.is_archived:
-                event.restore()
+        # Bulk archive below threshold
+        archived_count = scored_events.filter(
+            confidence__lt=threshold,
+            is_archived=False
+        ).update(is_archived=True)
+        
+        # Bulk restore above threshold
+        scored_events.filter(
+            confidence__gte=threshold,
+            is_archived=True
+        ).update(is_archived=False)
         
         return Response({
             'status': 'filter applied',
@@ -1207,6 +1155,237 @@ Format your response as JSON with keys: summary, risk_assessment, key_findings (
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+    @action(detail=False, methods=['post'], url_path='analyze_logs', url_name='analyze_logs')
+    def analyze_logs(self, request):
+        """
+        Analyze parsed log events with Gemini AI
+        Accepts events directly from frontend for immediate analysis
+        """
+        import json
+        
+        events_data = request.data.get('events', [])
+        analysis_type = request.data.get('analysis_type', 'security')  # security, performance, general
+        
+        if not events_data:
+            return Response({'error': 'No events provided'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            import google.generativeai as genai
+            import os
+            
+            api_key = os.getenv('GOOGLE_API_KEY')
+            if not api_key:
+                return Response({
+                    'error': 'GOOGLE_API_KEY not configured',
+                    'fallback_analysis': self._generate_fallback_analysis(events_data)
+                }, status=status.HTTP_200_OK)
+            
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel(os.getenv('DEFAULT_LLM_MODEL', 'gemini-2.0-flash'))
+            
+            # Prepare summary statistics
+            stats = self._calculate_event_stats(events_data)
+            
+            # Build comprehensive prompt
+            prompt = f"""You are an expert cybersecurity analyst. Analyze these parsed log events and provide a comprehensive security assessment.
+
+## Event Statistics
+- Total Events: {stats['total']}
+- Unique IPs: {stats['unique_ips']}
+- Unique Users: {stats['unique_users']}
+- Time Range: {stats['time_range']}
+
+## Event Type Distribution
+{json.dumps(stats['event_types'], indent=2)}
+
+## HTTP Status Codes
+{json.dumps(stats['status_codes'], indent=2)}
+
+## Top Source IPs
+{json.dumps(stats['top_ips'], indent=2)}
+
+## Sample Events (showing {min(30, len(events_data))} of {len(events_data)}):
+{json.dumps(events_data[:30], indent=2, default=str)}
+
+Please provide your analysis in the following JSON format:
+{{
+    "executive_summary": "2-3 sentence overview of what happened",
+    "threat_level": "CRITICAL|HIGH|MEDIUM|LOW",
+    "threat_level_explanation": "Why this threat level was assigned",
+    "attack_patterns": [
+        {{
+            "pattern_name": "Name of attack pattern",
+            "description": "What this pattern indicates",
+            "evidence": ["List of supporting evidence from the logs"],
+            "mitre_tactic": "Relevant MITRE ATT&CK tactic if applicable"
+        }}
+    ],
+    "suspicious_activities": [
+        {{
+            "activity": "Description of suspicious activity",
+            "severity": "CRITICAL|HIGH|MEDIUM|LOW",
+            "source_ip": "IP if applicable",
+            "user": "User if applicable", 
+            "recommendation": "What to do about it"
+        }}
+    ],
+    "timeline_analysis": "Narrative of the attack timeline if detected",
+    "key_indicators": [
+        {{
+            "indicator_type": "IP|USER|PATH|USER_AGENT|etc",
+            "value": "The actual indicator",
+            "reason": "Why this is significant"
+        }}
+    ],
+    "recommendations": [
+        {{
+            "priority": "IMMEDIATE|HIGH|MEDIUM|LOW",
+            "action": "Specific action to take",
+            "rationale": "Why this action is needed"
+        }}
+    ],
+    "false_positive_assessment": "Assessment of potential false positives",
+    "additional_investigation": ["List of things to investigate further"]
+}}"""
+
+            response = model.generate_content(
+                prompt,
+                generation_config={
+                    'temperature': 0.3,
+                    'max_output_tokens': 4000,
+                }
+            )
+            
+            # Parse response
+            ai_response = response.text.strip()
+            if ai_response.startswith('```json'):
+                ai_response = ai_response[7:]
+            if ai_response.startswith('```'):
+                ai_response = ai_response[3:]
+            if ai_response.endswith('```'):
+                ai_response = ai_response[:-3]
+            
+            try:
+                analysis = json.loads(ai_response.strip())
+                analysis['generated_by'] = 'Gemini AI'
+                analysis['model'] = os.getenv('DEFAULT_LLM_MODEL', 'gemini-2.0-flash')
+                analysis['event_stats'] = stats
+                return Response(analysis)
+            except json.JSONDecodeError:
+                # Return raw response if not valid JSON
+                return Response({
+                    'executive_summary': ai_response[:1000],
+                    'raw_response': ai_response,
+                    'generated_by': 'Gemini AI (raw)',
+                    'event_stats': stats
+                })
+                
+        except Exception as e:
+            logger.error(f"Error in log analysis: {str(e)}")
+            return Response({
+                'error': str(e),
+                'fallback_analysis': self._generate_fallback_analysis(events_data)
+            }, status=status.HTTP_200_OK)
+    
+    def _calculate_event_stats(self, events):
+        """Calculate statistics from events"""
+        from collections import Counter
+        
+        stats = {
+            'total': len(events),
+            'unique_ips': len(set(e.get('host', '') for e in events if e.get('host'))),
+            'unique_users': len(set(e.get('user', '') for e in events if e.get('user'))),
+            'event_types': dict(Counter(e.get('event_type', 'UNKNOWN') for e in events)),
+            'status_codes': dict(Counter(e.get('status_code', 0) for e in events if e.get('status_code'))),
+            'top_ips': dict(Counter(e.get('host', '') for e in events).most_common(10)),
+            'methods': dict(Counter(e.get('method', '') for e in events if e.get('method'))),
+        }
+        
+        # Time range
+        timestamps = [e.get('timestamp') for e in events if e.get('timestamp')]
+        if timestamps:
+            try:
+                # Handle both string and datetime timestamps
+                parsed_ts = []
+                for ts in timestamps:
+                    if isinstance(ts, str):
+                        from datetime import datetime
+                        try:
+                            parsed_ts.append(datetime.fromisoformat(ts.replace('Z', '+00:00')))
+                        except:
+                            parsed_ts.append(datetime.strptime(ts, '%Y-%m-%d %H:%M:%S'))
+                    else:
+                        parsed_ts.append(ts)
+                stats['time_range'] = f"{min(parsed_ts)} to {max(parsed_ts)}"
+            except:
+                stats['time_range'] = 'Unknown'
+        else:
+            stats['time_range'] = 'Unknown'
+        
+        return stats
+    
+    def _generate_fallback_analysis(self, events):
+        """Generate basic analysis without AI"""
+        from collections import Counter
+        
+        stats = self._calculate_event_stats(events)
+        
+        # Detect suspicious patterns
+        suspicious = []
+        
+        # Check for login failures
+        login_failures = [e for e in events if e.get('event_type') == 'LOGIN_FAILURE']
+        if len(login_failures) >= 3:
+            suspicious.append({
+                'activity': f"Multiple login failures detected ({len(login_failures)} attempts)",
+                'severity': 'HIGH' if len(login_failures) >= 5 else 'MEDIUM',
+                'recommendation': 'Investigate potential brute force attack'
+            })
+        
+        # Check for SQL injection attempts
+        sqli = [e for e in events if e.get('event_type') == 'SQL_INJECTION_ATTEMPT']
+        if sqli:
+            suspicious.append({
+                'activity': f"SQL injection attempts detected ({len(sqli)} attempts)",
+                'severity': 'CRITICAL',
+                'recommendation': 'Block source IPs and review WAF rules'
+            })
+        
+        # Check for path traversal
+        traversal = [e for e in events if e.get('event_type') == 'PATH_TRAVERSAL_ATTEMPT']
+        if traversal:
+            suspicious.append({
+                'activity': f"Path traversal attempts detected ({len(traversal)} attempts)",
+                'severity': 'CRITICAL',
+                'recommendation': 'Review file access controls and input validation'
+            })
+        
+        # Check for scanners
+        scanners = [e for e in events if e.get('event_type') == 'SCANNER_DETECTED']
+        if scanners:
+            suspicious.append({
+                'activity': f"Security scanner activity detected ({len(scanners)} requests)",
+                'severity': 'HIGH',
+                'recommendation': 'Block scanner IPs and review exposed endpoints'
+            })
+        
+        # Determine overall threat level
+        threat_level = 'LOW'
+        if any(s['severity'] == 'CRITICAL' for s in suspicious):
+            threat_level = 'CRITICAL'
+        elif any(s['severity'] == 'HIGH' for s in suspicious):
+            threat_level = 'HIGH'
+        elif suspicious:
+            threat_level = 'MEDIUM'
+        
+        return {
+            'executive_summary': f"Analyzed {stats['total']} events from {stats['unique_ips']} unique IPs. Found {len(suspicious)} suspicious patterns.",
+            'threat_level': threat_level,
+            'suspicious_activities': suspicious,
+            'event_stats': stats,
+            'generated_by': 'Rule-based analysis (AI unavailable)'
+        }
+
     @action(detail=False, methods=['post'])
     def generate_combined(self, request):
         """Generate nested LaTeX PDF report with accompanying CSV"""
@@ -1274,21 +1453,25 @@ Format your response as JSON with keys: summary, risk_assessment, key_findings (
                     'avg_confidence': float(story.avg_confidence) if story.avg_confidence else 0.0,
                 })
             
-            # Generate PDF and CSV report
+            # Generate PDF and CSV report (LaTeX source only editable on website, not downloaded)
             latex_content, pdf_bytes, csv_data = latex_generator.generate_nested_latex_report(case_data)
             
             import io
             zip_buffer = io.BytesIO()
             with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+                # Only include PDF and CSV in download - no LaTeX source code
                 zip_file.writestr(f'report_case_{case.id}.pdf', pdf_bytes)
                 zip_file.writestr(f'report_case_{case.id}_data.csv', csv_data.encode('utf-8'))
                 
                 metadata = f"""Case Report - {case.name}
 Generated: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}
 Status: {case.status}
-Events Analyzed: {len(case_data['scored_events'])}
-Attack Patterns: {len(case_data['stories'])}
-Evidence Files: {len(case_data['evidence_files'])}
+Events Analyzed: {len(case_data['scored_events'])} real parsed events
+Attack Patterns: {len(case_data['stories'])} AI-generated stories
+Evidence Files: {len(case_data['evidence_files'])} uploaded files
+
+Note: LaTeX source can be edited on the website using 'Preview & Edit LaTeX' button.
+This package contains the compiled PDF report and raw CSV data only.
 """
                 zip_file.writestr('README.txt', metadata)
             

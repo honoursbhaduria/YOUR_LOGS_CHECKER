@@ -30,13 +30,21 @@ export interface EvidenceFile {
   file: string;
   file_hash: string;
   file_size: number;
-  log_type: 'CSV' | 'SYSLOG' | 'EVTX' | 'JSON' | 'UNKNOWN';
+  log_type: 'CSV' | 'SYSLOG' | 'EVTX' | 'JSON' | 'ACCESS_LOG' | 'UNKNOWN';
   uploaded_by: User;
   uploaded_at: string;
   is_parsed: boolean;
   parsed_at?: string;
   parse_error?: string;
   event_count: number;
+  scored_event_count: number;
+  processing_status: {
+    upload: 'completed';
+    hash: 'completed';
+    parsing: 'pending' | 'in_progress' | 'completed' | 'failed';
+    scoring: 'pending' | 'in_progress' | 'completed' | 'no_events';
+    story_generation: 'pending' | 'ready';
+  };
 }
 
 export interface ParsedEvent {
@@ -48,6 +56,7 @@ export interface ParsedEvent {
   host: string;
   event_type: string;
   raw_message: string;
+  extra_data: Record<string, any>;  // Dynamic fields from any log format
   line_number: number;
   parsed_at: string;
 }

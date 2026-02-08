@@ -4,7 +4,16 @@
  */
 import axios, { AxiosInstance } from 'axios';
 
-const API_BASE_URL = (process.env.REACT_APP_API_URL?.endsWith('/api') ? process.env.REACT_APP_API_URL : `${process.env.REACT_APP_API_URL}/api`) || 'http://localhost:8000/api';
+// Build API URL - default to localhost:8000 if not set
+const buildApiUrl = (): string => {
+  const envUrl = process.env.REACT_APP_API_URL;
+  if (!envUrl) {
+    return 'http://localhost:8000/api';
+  }
+  return envUrl.endsWith('/api') ? envUrl : `${envUrl}/api`;
+};
+
+const API_BASE_URL = buildApiUrl();
 
 // Log API URL in development for debugging
 if (process.env.NODE_ENV === 'development') {
@@ -273,6 +282,14 @@ class ApiClient {
   async getAIAnalysis(caseId: number) {
     // Get AI-powered analysis summary using Gemini
     return this.client.post('/report/ai_analysis/', { case_id: caseId });
+  }
+  
+  async analyzeLogsWithAI(events: any[], analysisType: string = 'security') {
+    // Analyze parsed log events with Gemini AI
+    return this.client.post('/report/analyze_logs/', { 
+      events, 
+      analysis_type: analysisType 
+    });
   }
   
   getReportDownloadUrl(id: number): string {

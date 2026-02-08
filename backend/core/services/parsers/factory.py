@@ -6,6 +6,7 @@ from typing import Optional
 from .base import BaseParser
 from .csv_parser import CSVParser
 from .syslog_parser import SyslogParser
+from .access_log_parser import AccessLogParser
 
 
 class ParserFactory:
@@ -16,6 +17,7 @@ class ParserFactory:
     _parsers = {
         'CSV': CSVParser,
         'SYSLOG': SyslogParser,
+        'ACCESS_LOG': AccessLogParser,
         # Add more parsers here: 'EVTX': EVTXParser, etc.
     }
     

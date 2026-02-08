@@ -23,6 +23,7 @@ const ReportGeneration: React.FC = () => {
   const [latexSource, setLatexSource] = useState('');
   const [loadingLatex, setLoadingLatex] = useState(false);
   const [compilingLatex, setCompilingLatex] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [capabilities, setCapabilities] = useState<ReportCapabilities | null>(null);
 
   // Check server capabilities on mount
@@ -139,6 +140,10 @@ const ReportGeneration: React.FC = () => {
   };
 
   const handleCompileLatex = async (customLatexSource: string, download: boolean): Promise<Blob | null> => {
+    console.log('handleCompileLatex called with source length:', customLatexSource.length);
+    console.log('Download mode:', download);
+    console.log('First 100 chars of source:', customLatexSource.substring(0, 100));
+    
     setCompilingLatex(true);
     try {
       // Always set fallback_to_tex=true for downloads, false for preview
@@ -147,6 +152,8 @@ const ReportGeneration: React.FC = () => {
         `report_case_${caseId}_custom.pdf`,
         download // fallback_to_tex - enabled for download, disabled for preview
       );
+      
+      console.log('Compilation response received, content-type:', response.headers['content-type']);
       
       // Check content type to determine if we got PDF or TEX
       const contentType = response.headers['content-type'] || '';
@@ -305,7 +312,7 @@ const ReportGeneration: React.FC = () => {
             </div>
             
             <p className="mt-4 text-xs text-zinc-600">
-              Preview & Edit: Customize LaTeX before generating PDF • Combined: ZIP with PDF + CSV
+              Preview & Edit: Customize LaTeX on website before generating • Combined: ZIP with PDF + CSV (no LaTeX source)
             </p>
           </div>
         </div>
