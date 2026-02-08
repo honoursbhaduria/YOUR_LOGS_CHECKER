@@ -116,7 +116,7 @@ class ParsedEvent(models.Model):
     raw_message = models.TextField()
     
     # Dynamic fields for any log format (method, path, status_code, etc.)
-    extra_data = models.JSONField(default=dict, blank=True)
+    extra_data = models.JSONField(default=dict, blank=True, null=False)
     
     # Metadata
     line_number = models.IntegerField()

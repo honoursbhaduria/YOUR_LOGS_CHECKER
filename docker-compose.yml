@@ -19,9 +19,10 @@ services:
 
   backend:
     build: ./backend
-    command: python manage.py runserver 0.0.0.0:8000
+    command: sh -c "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
     volumes:
       - ./backend:/app
+      - ./backend/media:/app/media
     ports:
       - "8000:8000"
     environment:
@@ -29,6 +30,7 @@ services:
       - DATABASE_URL=postgresql://forensic_user:forensic_pass@db:5432/forensic_db
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - ALLOWED_HOSTS=localhost,127.0.0.1,backend
     depends_on:
       - db
       - redis
@@ -38,6 +40,7 @@ services:
     command: celery -A config worker -l info
     volumes:
       - ./backend:/app
+      - ./backend/media:/app/media
     environment:
       - DATABASE_URL=postgresql://forensic_user:forensic_pass@db:5432/forensic_db
       - CELERY_BROKER_URL=redis://redis:6379/0
@@ -45,6 +48,7 @@ services:
     depends_on:
       - db
       - redis
+      - backend
 
   frontend:
     build: ./frontend

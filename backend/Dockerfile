@@ -27,4 +27,5 @@ ENV PORT=10000
 
 EXPOSE 10000
 
-CMD ["/bin/bash", "entrypoint.sh"]
+# Use sh instead of bash (more compatible with slim images)
+CMD ["sh", "entrypoint.sh"]

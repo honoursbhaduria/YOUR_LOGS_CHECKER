@@ -44,6 +44,10 @@ def parse_evidence_file_task(evidence_file_id):
         parsed_events = []
         
         for event_data in events:
+            # Ensure extra_data is never None (safeguard against parser bugs)
+            if 'extra_data' not in event_data or event_data['extra_data'] is None:
+                event_data['extra_data'] = {}
+            
             parsed_events.append(ParsedEvent(
                 evidence_file=evidence,
                 **event_data
